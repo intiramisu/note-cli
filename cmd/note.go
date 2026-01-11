@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/intiramisu/note-cli/internal/note"
@@ -36,13 +37,25 @@ var noteCreateCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		title := strings.Join(args, " ")
 		tags, _ := cmd.Flags().GetStringSlice("tag")
+		templateName, _ := cmd.Flags().GetString("template")
 
-		storage, err := note.NewStorage(viper.GetString("notes_dir"))
+		notesDir := viper.GetString("notes_dir")
+		storage, err := note.NewStorage(notesDir)
 		if err != nil {
 			return err
 		}
 
 		n := note.NewNote(title, tags)
+
+		// テンプレートがあれば読み込み
+		if templateName != "" {
+			content, err := loadTemplate(notesDir, templateName, title)
+			if err != nil {
+				return err
+			}
+			n.Content = content
+		}
+
 		if err := storage.Save(n); err != nil {
 			return err
 		}
@@ -50,6 +63,18 @@ var noteCreateCmd = &cobra.Command{
 		fmt.Printf("メモを作成しました: %s\n", n.ID)
 		return openEditor(storage.GetPath(n.ID))
 	},
+}
+
+func loadTemplate(notesDir, name, title string) (string, error) {
+	templatePath := filepath.Join(notesDir, ".templates", name+".md")
+	data, err := os.ReadFile(templatePath)
+	if err != nil {
+		return "", fmt.Errorf("テンプレートが見つかりません: %s", name)
+	}
+
+	content := string(data)
+	content = strings.ReplaceAll(content, "{{title}}", title)
+	return content, nil
 }
 
 var noteListCmd = &cobra.Command{
@@ -223,6 +248,7 @@ func init() {
 	noteCmd.AddCommand(noteSearchCmd)
 
 	noteCreateCmd.Flags().StringSliceP("tag", "t", []string{}, "タグを指定 (複数指定可)")
+	noteCreateCmd.Flags().StringP("template", "T", "", "テンプレート名 (.templates/内のファイル)")
 	noteListCmd.Flags().StringP("tag", "t", "", "タグでフィルタ")
 	noteDeleteCmd.Flags().BoolP("force", "f", false, "確認なしで削除")
 }

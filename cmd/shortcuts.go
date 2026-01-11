@@ -19,13 +19,25 @@ var createCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		title := strings.Join(args, " ")
 		tags, _ := cmd.Flags().GetStringSlice("tag")
+		templateName, _ := cmd.Flags().GetString("template")
 
-		storage, err := note.NewStorage(viper.GetString("notes_dir"))
+		notesDir := viper.GetString("notes_dir")
+		storage, err := note.NewStorage(notesDir)
 		if err != nil {
 			return err
 		}
 
 		n := note.NewNote(title, tags)
+
+		// テンプレートがあれば読み込み
+		if templateName != "" {
+			content, err := loadTemplate(notesDir, templateName, title)
+			if err != nil {
+				return err
+			}
+			n.Content = content
+		}
+
 		if err := storage.Save(n); err != nil {
 			return err
 		}
@@ -162,5 +174,6 @@ func init() {
 	rootCmd.AddCommand(searchCmd)
 
 	createCmd.Flags().StringSliceP("tag", "t", []string{}, "タグを指定 (複数指定可)")
+	createCmd.Flags().StringP("template", "T", "", "テンプレート名 (.templates/内のファイル)")
 	listCmd.Flags().StringP("tag", "t", "", "タグでフィルタ")
 }

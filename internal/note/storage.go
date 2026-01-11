@@ -36,6 +36,14 @@ func (s *Storage) Save(note *Note) error {
 	return nil
 }
 
+func (s *Storage) SaveAt(note *Note, path string) error {
+	content := s.formatNote(note)
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return fmt.Errorf("メモの保存に失敗: %w", err)
+	}
+	return nil
+}
+
 func (s *Storage) List(tagFilter string) ([]*Note, error) {
 	entries, err := os.ReadDir(s.notesDir)
 	if err != nil {

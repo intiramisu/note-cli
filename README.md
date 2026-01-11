@@ -91,6 +91,45 @@ note-cli n delete "会議メモ" -f
 note-cli search "TODO"
 ```
 
+### デイリーノート
+
+```bash
+# 今日のデイリーノートを開く（なければ作成）
+note-cli d
+
+# 昨日・明日
+note-cli d yesterday
+note-cli d tomorrow
+
+# 日付指定
+note-cli d 2025-01-11
+note-cli d -1    # 1日前
+note-cli d +3    # 3日後
+```
+
+デイリーノートは `~/notes/daily/` に保存されます。
+
+### テンプレート
+
+```bash
+# テンプレートを使ってメモ作成
+note-cli create "週次MTG" -T meeting
+```
+
+テンプレートは `~/notes/.templates/` に配置します:
+
+```
+.templates/
+├── meeting.md
+├── daily.md     # デイリーノートで使用
+└── review.md
+```
+
+テンプレート内で使える変数:
+- `{{title}}` - メモタイトル
+- `{{date}}` - 日付 (デイリーノート用)
+- `{{year}}`, `{{month}}`, `{{day}}`, `{{weekday}}`
+
 ## タスク機能
 
 ### TUI モード（おすすめ）
