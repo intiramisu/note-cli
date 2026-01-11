@@ -38,9 +38,9 @@ type Task struct {
 	Description string    `yaml:"description"`
 	Priority    Priority  `yaml:"priority"`
 	Status      Status    `yaml:"status"`
+	NoteID      string    `yaml:"note_id,omitempty"`
 	Created     time.Time `yaml:"created"`
 	Completed   time.Time `yaml:"completed,omitempty"`
-	DueDate     time.Time `yaml:"due_date,omitempty"`
 }
 
 func NewTask(id int, description string, priority Priority) *Task {
@@ -60,4 +60,12 @@ func (t *Task) Done() {
 
 func (t *Task) IsDone() bool {
 	return t.Status == StatusDone
+}
+
+func (t *Task) SetNoteID(noteID string) {
+	t.NoteID = noteID
+}
+
+func (t *Task) HasNote() bool {
+	return t.NoteID != ""
 }

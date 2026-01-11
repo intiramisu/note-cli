@@ -42,6 +42,15 @@ func (m *Manager) Add(description string, priority Priority) *Task {
 	return task
 }
 
+func (m *Manager) AddWithNote(description string, priority Priority, noteID string) *Task {
+	task := NewTask(m.nextID, description, priority)
+	task.NoteID = noteID
+	m.tasks = append(m.tasks, task)
+	m.nextID++
+	m.save()
+	return task
+}
+
 func (m *Manager) List(showDone bool) []*Task {
 	var result []*Task
 	for _, t := range m.tasks {
@@ -49,16 +58,27 @@ func (m *Manager) List(showDone bool) []*Task {
 			result = append(result, t)
 		}
 	}
+	return m.sortByPriority(result)
+}
 
-	// 優先度順（高い順）、作成日時順にソート
-	sort.Slice(result, func(i, j int) bool {
-		if result[i].Priority != result[j].Priority {
-			return result[i].Priority > result[j].Priority
+func (m *Manager) ListByNote(noteID string) []*Task {
+	var result []*Task
+	for _, t := range m.tasks {
+		if t.NoteID == noteID {
+			result = append(result, t)
 		}
-		return result[i].Created.Before(result[j].Created)
-	})
+	}
+	return m.sortByPriority(result)
+}
 
-	return result
+func (m *Manager) sortByPriority(tasks []*Task) []*Task {
+	sort.Slice(tasks, func(i, j int) bool {
+		if tasks[i].Priority != tasks[j].Priority {
+			return tasks[i].Priority > tasks[j].Priority
+		}
+		return tasks[i].Created.Before(tasks[j].Created)
+	})
+	return tasks
 }
 
 func (m *Manager) Get(id int) (*Task, error) {
@@ -101,6 +121,19 @@ func (m *Manager) Toggle(id int) error {
 		task.Done()
 	}
 	return m.save()
+}
+
+func (m *Manager) SetNoteID(id int, noteID string) error {
+	task, err := m.Get(id)
+	if err != nil {
+		return err
+	}
+	task.NoteID = noteID
+	return m.save()
+}
+
+func (m *Manager) UnlinkNote(id int) error {
+	return m.SetNoteID(id, "")
 }
 
 func (m *Manager) load() error {

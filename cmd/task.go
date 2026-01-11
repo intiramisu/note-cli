@@ -32,6 +32,7 @@ var taskAddCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		description := strings.Join(args, " ")
 		priorityStr, _ := cmd.Flags().GetString("priority")
+		noteID, _ := cmd.Flags().GetString("note")
 
 		priority := task.PriorityNone
 		switch priorityStr {
@@ -48,8 +49,14 @@ var taskAddCmd = &cobra.Command{
 			return err
 		}
 
-		t := manager.Add(description, priority)
-		fmt.Printf("タスクを追加しました: [%d] %s\n", t.ID, t.Description)
+		var t *task.Task
+		if noteID != "" {
+			t = manager.AddWithNote(description, priority, noteID)
+			fmt.Printf("タスクを追加しました: [%d] %s (📄 %s)\n", t.ID, t.Description, noteID)
+		} else {
+			t = manager.Add(description, priority)
+			fmt.Printf("タスクを追加しました: [%d] %s\n", t.ID, t.Description)
+		}
 		return nil
 	},
 }
@@ -81,7 +88,11 @@ var taskListCmd = &cobra.Command{
 			if t.Priority != task.PriorityNone {
 				priorityStr = fmt.Sprintf(" (%s)", t.Priority.String())
 			}
-			fmt.Printf("%s [%d]%s %s\n", checkbox, t.ID, priorityStr, t.Description)
+			noteStr := ""
+			if t.HasNote() {
+				noteStr = fmt.Sprintf(" 📄 %s", t.NoteID)
+			}
+			fmt.Printf("%s [%d]%s %s%s\n", checkbox, t.ID, priorityStr, t.Description, noteStr)
 		}
 
 		return nil
@@ -153,5 +164,6 @@ func init() {
 	taskCmd.AddCommand(taskDeleteCmd)
 
 	taskAddCmd.Flags().StringP("priority", "p", "", "優先度 (1/high, 2/medium, 3/low)")
+	taskAddCmd.Flags().StringP("note", "n", "", "紐づけるメモのタイトル")
 	taskListCmd.Flags().BoolP("all", "a", false, "完了済みタスクも表示")
 }

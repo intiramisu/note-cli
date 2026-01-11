@@ -346,13 +346,20 @@ func (m Model) renderTaskLine(task *Task, colWidth int, isSelected bool) string 
 		if i == 0 {
 			result.WriteString(prefix)
 		} else {
-			// 2行目以降はインデント
 			result.WriteString(strings.Repeat(" ", prefixWidth))
 		}
 		result.WriteString(line)
 		if i < len(lines)-1 {
 			result.WriteString("\n")
 		}
+	}
+
+	// 紐づきメモがある場合は表示
+	if task.HasNote() {
+		result.WriteString("\n")
+		noteLabel := "📄 " + truncateByWidth(task.NoteID, maxDescWidth-3)
+		result.WriteString(strings.Repeat(" ", prefixWidth))
+		result.WriteString(helpStyle.Render(noteLabel))
 	}
 
 	text := result.String()
@@ -363,6 +370,24 @@ func (m Model) renderTaskLine(task *Task, colWidth int, isSelected bool) string 
 		return doneStyle.Render(text)
 	}
 	return text
+}
+
+func truncateByWidth(s string, maxWidth int) string {
+	if runewidth.StringWidth(s) <= maxWidth {
+		return s
+	}
+	var result strings.Builder
+	width := 0
+	for _, r := range s {
+		rw := runewidth.RuneWidth(r)
+		if width+rw > maxWidth-3 {
+			result.WriteString("...")
+			break
+		}
+		result.WriteRune(r)
+		width += rw
+	}
+	return result.String()
 }
 
 func wrapByWidth(s string, maxWidth int) []string {

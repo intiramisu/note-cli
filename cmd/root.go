@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/intiramisu/note-cli/internal/note"
+	"github.com/intiramisu/note-cli/internal/task"
+	"github.com/intiramisu/note-cli/internal/ui"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -16,7 +19,24 @@ var rootCmd = &cobra.Command{
 	Long: `note-cli はターミナルからメモとタスクを管理するための
 軽量で高速な CLI ツールです。
 
-コマンドライン中心のワークフローを好む開発者向けに設計されています。`,
+コマンドライン中心のワークフローを好む開発者向けに設計されています。
+
+引数なしで実行すると統合TUIが起動します。`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		notesDir := viper.GetString("notes_dir")
+
+		noteStorage, err := note.NewStorage(notesDir)
+		if err != nil {
+			return err
+		}
+
+		taskManager, err := task.NewManager(notesDir)
+		if err != nil {
+			return err
+		}
+
+		return ui.Run(noteStorage, taskManager)
+	},
 }
 
 func Execute() {
