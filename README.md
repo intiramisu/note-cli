@@ -216,6 +216,12 @@ note-cli
 
 デフォルトの設定ファイル: `~/.config/note-cli/config.yaml`
 
+```bash
+# サンプル設定ファイルをコピーして使用
+mkdir -p ~/.config/note-cli
+cp config.yaml.example ~/.config/note-cli/config.yaml
+```
+
 ```yaml
 # メモの保存先ディレクトリ
 notes_dir: ~/notes
@@ -227,11 +233,7 @@ editor: vim
 default_tags: []
 ```
 
-### 設定の確認
-
-```bash
-note-cli --help
-```
+詳細は `config.yaml.example` を参照してください。
 
 ## データ形式
 
