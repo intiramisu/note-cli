@@ -20,10 +20,27 @@ go build -o note-cli .
 
 ```bash
 # メモを作成（エディタが開く）
-note-cli note create "買い物リスト"
+note-cli create "買い物リスト"
 
 # タスク管理をTUIで開く
-note-cli task
+note-cli t
+```
+
+## ショートカット
+
+よく使うコマンドは短く書けます:
+
+```bash
+# ルート直下のショートカット
+note-cli create "メモ"     # = note-cli note create
+note-cli list              # = note-cli note list
+note-cli show "メモ"       # = note-cli note show
+note-cli edit "メモ"       # = note-cli note edit
+note-cli search "検索"     # = note-cli note search
+
+# エイリアス
+note-cli n create "メモ"   # n = note
+note-cli t                 # t = task
 ```
 
 ## メモ機能
@@ -32,43 +49,43 @@ note-cli task
 
 ```bash
 # 新規メモを作成してエディタで開く
-note-cli note create "会議メモ"
+note-cli create "会議メモ"
 
 # タグ付きで作成
-note-cli note create "Goの勉強" -t go -t programming
+note-cli create "Goの勉強" -t go -t programming
 ```
 
 ### メモ一覧
 
 ```bash
 # すべてのメモを表示
-note-cli note list
+note-cli list
 
 # タグでフィルタ
-note-cli note list --tag go
+note-cli list --tag go
 ```
 
 ### メモを表示・編集・削除
 
 ```bash
 # メモの内容を表示
-note-cli note show "会議メモ"
+note-cli show "会議メモ"
 
 # メモを編集（エディタで開く）
-note-cli note edit "会議メモ"
+note-cli edit "会議メモ"
 
 # メモを削除
-note-cli note delete "会議メモ"
+note-cli n delete "会議メモ"
 
 # 確認なしで削除
-note-cli note delete "会議メモ" -f
+note-cli n delete "会議メモ" -f
 ```
 
 ### メモを検索
 
 ```bash
 # 全文検索
-note-cli note search "TODO"
+note-cli search "TODO"
 ```
 
 ## タスク機能
@@ -77,13 +94,15 @@ note-cli note search "TODO"
 
 ```bash
 # 引数なしで実行するとTUIが起動
-note-cli task
+note-cli t
 ```
 
 **TUI操作方法:**
 
 | キー | 操作 |
 |------|------|
+| `h` / `←` | 左のセクションへ |
+| `l` / `→` | 右のセクションへ |
 | `j` / `↓` | 下に移動 |
 | `k` / `↑` | 上に移動 |
 | `Enter` / `Space` | 完了/未完了を切替 |
@@ -106,22 +125,22 @@ note-cli task
 
 ```bash
 # タスクを追加
-note-cli task add "牛乳を買う"
+note-cli t add "牛乳を買う"
 
 # 優先度付きで追加（1:高, 2:中, 3:低）
-note-cli task add "レポート提出" -p 1
+note-cli t add "レポート提出" -p 1
 
 # タスク一覧
-note-cli task list
+note-cli t list
 
 # 完了済みも含めて表示
-note-cli task list -a
+note-cli t list -a
 
 # タスクを完了
-note-cli task done 1
+note-cli t done 1
 
 # タスクを削除
-note-cli task delete 1
+note-cli t delete 1
 ```
 
 ## 設定

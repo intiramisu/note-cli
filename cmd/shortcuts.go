@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/intiramisu/note-cli/internal/note"
@@ -12,26 +10,11 @@ import (
 	"github.com/spf13/viper"
 )
 
-func openEditor(filePath string) error {
-	editor := viper.GetString("editor")
-	cmd := exec.Command(editor, filePath)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
+// ルートレベルのショートカットコマンド（メモ操作をより短く）
 
-var noteCmd = &cobra.Command{
-	Use:     "note",
-	Aliases: []string{"n"},
-	Short:   "メモの操作",
-	Long:    `メモの作成、編集、一覧表示、検索などを行います。`,
-}
-
-var noteCreateCmd = &cobra.Command{
+var createCmd = &cobra.Command{
 	Use:   "create <タイトル>",
-	Short: "新規メモを作成",
-	Long:  `指定したタイトルで新しいメモを作成し、エディタで開きます。`,
+	Short: "新規メモを作成 (note create のショートカット)",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		title := strings.Join(args, " ")
@@ -52,10 +35,9 @@ var noteCreateCmd = &cobra.Command{
 	},
 }
 
-var noteListCmd = &cobra.Command{
+var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "メモの一覧を表示",
-	Long:  `保存されているメモの一覧を表示します。`,
+	Short: "メモ一覧を表示 (note list のショートカット)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		tagFilter, _ := cmd.Flags().GetString("tag")
 
@@ -86,10 +68,9 @@ var noteListCmd = &cobra.Command{
 	},
 }
 
-var noteShowCmd = &cobra.Command{
+var showCmd = &cobra.Command{
 	Use:   "show <タイトル|ファイル名>",
-	Short: "メモの内容を表示",
-	Long:  `指定したメモの内容を表示します。`,
+	Short: "メモの内容を表示 (note show のショートカット)",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.Join(args, " ")
@@ -116,10 +97,9 @@ var noteShowCmd = &cobra.Command{
 	},
 }
 
-var noteEditCmd = &cobra.Command{
+var editCmd = &cobra.Command{
 	Use:   "edit <タイトル|ファイル名>",
-	Short: "メモを編集",
-	Long:  `指定したメモをエディタで開いて編集します。`,
+	Short: "メモを編集 (note edit のショートカット)",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.Join(args, " ")
@@ -133,52 +113,14 @@ var noteEditCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+
 		return openEditor(storage.GetPath(n.ID))
 	},
 }
 
-var noteDeleteCmd = &cobra.Command{
-	Use:   "delete <タイトル|ファイル名>",
-	Short: "メモを削除",
-	Long:  `指定したメモを削除します。`,
-	Args:  cobra.MinimumNArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		query := strings.Join(args, " ")
-		force, _ := cmd.Flags().GetBool("force")
-
-		storage, err := note.NewStorage(viper.GetString("notes_dir"))
-		if err != nil {
-			return err
-		}
-
-		n, err := storage.Find(query)
-		if err != nil {
-			return err
-		}
-
-		if !force {
-			fmt.Printf("メモ「%s」を削除しますか？ [y/N]: ", n.Title)
-			var answer string
-			fmt.Scanln(&answer)
-			if strings.ToLower(answer) != "y" {
-				fmt.Println("キャンセルしました")
-				return nil
-			}
-		}
-
-		if err := storage.Delete(n.ID); err != nil {
-			return err
-		}
-
-		fmt.Printf("メモ「%s」を削除しました\n", n.Title)
-		return nil
-	},
-}
-
-var noteSearchCmd = &cobra.Command{
+var searchCmd = &cobra.Command{
 	Use:   "search <クエリ>",
-	Short: "メモを全文検索",
-	Long:  `メモの内容を全文検索します。`,
+	Short: "メモを全文検索 (note search のショートカット)",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.Join(args, " ")
@@ -201,7 +143,6 @@ var noteSearchCmd = &cobra.Command{
 				fmt.Printf("📄 %s\n", r.Title)
 				currentFile = r.Filename
 			}
-			// 長い行は切り詰め
 			content := r.Content
 			if len(content) > 80 {
 				content = content[:77] + "..."
@@ -214,15 +155,12 @@ var noteSearchCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(noteCmd)
-	noteCmd.AddCommand(noteCreateCmd)
-	noteCmd.AddCommand(noteListCmd)
-	noteCmd.AddCommand(noteShowCmd)
-	noteCmd.AddCommand(noteEditCmd)
-	noteCmd.AddCommand(noteDeleteCmd)
-	noteCmd.AddCommand(noteSearchCmd)
+	rootCmd.AddCommand(createCmd)
+	rootCmd.AddCommand(listCmd)
+	rootCmd.AddCommand(showCmd)
+	rootCmd.AddCommand(editCmd)
+	rootCmd.AddCommand(searchCmd)
 
-	noteCreateCmd.Flags().StringSliceP("tag", "t", []string{}, "タグを指定 (複数指定可)")
-	noteListCmd.Flags().StringP("tag", "t", "", "タグでフィルタ")
-	noteDeleteCmd.Flags().BoolP("force", "f", false, "確認なしで削除")
+	createCmd.Flags().StringSliceP("tag", "t", []string{}, "タグを指定 (複数指定可)")
+	listCmd.Flags().StringP("tag", "t", "", "タグでフィルタ")
 }

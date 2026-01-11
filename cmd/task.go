@@ -11,9 +11,10 @@ import (
 )
 
 var taskCmd = &cobra.Command{
-	Use:   "task",
-	Short: "タスクの操作",
-	Long:  `タスクの追加、一覧表示、完了などを行います。引数なしで実行するとTUIモードで起動します。`,
+	Use:     "task",
+	Aliases: []string{"t"},
+	Short:   "タスクの操作",
+	Long:    `タスクの追加、一覧表示、完了などを行います。引数なしで実行するとTUIモードで起動します。`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		manager, err := task.NewManager(viper.GetString("notes_dir"))
 		if err != nil {
