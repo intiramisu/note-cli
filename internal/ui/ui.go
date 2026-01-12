@@ -7,10 +7,37 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/intiramisu/note-cli/internal/config"
 	"github.com/intiramisu/note-cli/internal/note"
 	"github.com/intiramisu/note-cli/internal/task"
 	"github.com/mattn/go-runewidth"
 )
+
+// UI styles (initialized from config)
+type uiStyles struct {
+	title    lipgloss.Style
+	selected lipgloss.Style
+	normal   lipgloss.Style
+	done     lipgloss.Style
+	meta     lipgloss.Style
+	help     lipgloss.Style
+}
+
+var styles uiStyles
+
+func initStyles() {
+	cfg := config.Global
+	colors := cfg.Theme.Colors
+
+	styles = uiStyles{
+		title:    lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(colors.Title)).MarginBottom(1),
+		selected: lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Selected)).Bold(true),
+		normal:   lipgloss.NewStyle().Foreground(lipgloss.Color("#fcfcfc")),
+		done:     lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Done)).Strikethrough(true),
+		meta:     lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Help)),
+		help:     lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Help)).MarginTop(1),
+	}
+}
 
 type viewMode int
 
@@ -33,15 +60,18 @@ type model struct {
 	height int
 
 	// タスク追加用
-	addingTask bool
-	taskInput  textinput.Model
+	addingTask   bool
+	taskInput    textinput.Model
 	taskPriority task.Priority
 }
 
 func NewModel(noteStorage *note.Storage, taskManager *task.Manager) model {
+	initStyles()
+	cfg := config.Global
+
 	ti := textinput.New()
 	ti.Placeholder = "タスクを入力..."
-	ti.CharLimit = 200
+	ti.CharLimit = cfg.Display.TaskCharLimit
 
 	return model{
 		noteStorage:  noteStorage,
@@ -279,24 +309,12 @@ func (m model) View() string {
 }
 
 func (m model) renderNotesList() string {
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("205")).
-		MarginBottom(1)
-
-	selectedStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("212")).
-		Bold(true)
-
-	normalStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
-
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		MarginTop(1)
+	cfg := config.Global
+	symbols := cfg.Theme.Symbols
+	formats := cfg.Formats
 
 	var b strings.Builder
-	b.WriteString(titleStyle.Render("📝 Notes"))
+	b.WriteString(styles.title.Render(symbols.NoteIcon + " Notes"))
 	b.WriteString("\n\n")
 
 	if len(m.notes) == 0 {
@@ -318,22 +336,22 @@ func (m model) renderNotesList() string {
 
 		for i := start; i < end; i++ {
 			n := m.notes[i]
-			prefix := "  "
-			style := normalStyle
+			prefix := symbols.CursorEmpty
+			style := styles.normal
 			if i == m.selectedNote {
-				prefix = "▸ "
-				style = selectedStyle
+				prefix = symbols.Cursor
+				style = styles.selected
 			}
 
 			title := truncateString(n.Title, m.width-10)
-			date := n.Modified.Format("2006-01-02")
+			date := n.Modified.Format(formats.Date)
 			line := fmt.Sprintf("%s%-*s %s", prefix, m.width-15, title, date)
 			b.WriteString(style.Render(line))
 			b.WriteString("\n")
 		}
 	}
 
-	b.WriteString(helpStyle.Render("j/k: 移動 | Enter: 詳細 | q: 終了"))
+	b.WriteString(styles.help.Render("j/k: 移動 | Enter: 詳細 | q: 終了"))
 
 	return b.String()
 }
@@ -343,52 +361,33 @@ func (m model) renderNoteDetail() string {
 		return "メモが選択されていません"
 	}
 
+	cfg := config.Global
+	symbols := cfg.Theme.Symbols
+	formats := cfg.Formats
+
 	n := m.notes[m.selectedNote]
-
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("205"))
-
-	metaStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241"))
-
-	taskTitleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("212")).
-		MarginTop(1)
-
-	selectedStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("212")).
-		Bold(true)
-
-	normalStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
-
-	doneStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		Strikethrough(true)
-
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		MarginTop(1)
 
 	var b strings.Builder
 
 	// メモヘッダー
-	b.WriteString(titleStyle.Render("📄 " + n.Title))
+	b.WriteString(styles.title.Render(symbols.NoteIcon + " " + n.Title))
 	b.WriteString("\n")
-	b.WriteString(metaStyle.Render(fmt.Sprintf("作成: %s | 更新: %s",
-		n.Created.Format("2006-01-02 15:04"),
-		n.Modified.Format("2006-01-02 15:04"))))
+	b.WriteString(styles.meta.Render(fmt.Sprintf("作成: %s | 更新: %s",
+		n.Created.Format(formats.DateTime),
+		n.Modified.Format(formats.DateTime))))
 	b.WriteString("\n")
 
 	if len(n.Tags) > 0 {
-		b.WriteString(metaStyle.Render("タグ: " + strings.Join(n.Tags, ", ")))
+		b.WriteString(styles.meta.Render("タグ: " + strings.Join(n.Tags, ", ")))
 		b.WriteString("\n")
 	}
 
 	// メモ内容（最初の数行）
-	b.WriteString(strings.Repeat("─", min(m.width-2, 40)))
+	sepWidth := cfg.Display.SeparatorWidth
+	if sepWidth > m.width-2 {
+		sepWidth = m.width - 2
+	}
+	b.WriteString(strings.Repeat("─", sepWidth))
 	b.WriteString("\n")
 
 	contentLines := strings.Split(n.Content, "\n")
@@ -398,7 +397,7 @@ func (m model) renderNoteDetail() string {
 	}
 	for i, line := range contentLines {
 		if i >= maxContentLines {
-			b.WriteString(metaStyle.Render("..."))
+			b.WriteString(styles.meta.Render("..."))
 			b.WriteString("\n")
 			break
 		}
@@ -408,18 +407,19 @@ func (m model) renderNoteDetail() string {
 
 	// 関連タスク
 	b.WriteString("\n")
-	b.WriteString(taskTitleStyle.Render("📋 関連タスク"))
+	taskTitleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(cfg.Theme.Colors.Selected)).MarginTop(1)
+	b.WriteString(taskTitleStyle.Render(symbols.TaskIcon + " 関連タスク"))
 	b.WriteString("\n")
 
 	if m.addingTask {
 		priorityLabel := m.taskPriority.String()
 		b.WriteString(fmt.Sprintf("  [%s] %s\n", priorityLabel, m.taskInput.View()))
-		b.WriteString(metaStyle.Render("  Tab: 優先度変更 | Enter: 確定 | Esc: キャンセル"))
+		b.WriteString(styles.meta.Render("  Tab: 優先度変更 | Enter: 確定 | Esc: キャンセル"))
 		b.WriteString("\n")
 	}
 
 	if len(m.tasks) == 0 && !m.addingTask {
-		b.WriteString(metaStyle.Render("  タスクなし"))
+		b.WriteString(styles.meta.Render("  タスクなし"))
 		b.WriteString("\n")
 	} else {
 		maxTaskLines := m.height - 15 - maxContentLines
@@ -429,22 +429,22 @@ func (m model) renderNoteDetail() string {
 
 		for i, t := range m.tasks {
 			if i >= maxTaskLines {
-				b.WriteString(metaStyle.Render(fmt.Sprintf("  ... 他 %d 件", len(m.tasks)-i)))
+				b.WriteString(styles.meta.Render(fmt.Sprintf("  ... 他 %d 件", len(m.tasks)-i)))
 				b.WriteString("\n")
 				break
 			}
 
-			prefix := "  "
-			style := normalStyle
+			prefix := symbols.CursorEmpty
+			style := styles.normal
 			if i == m.selectedTask && !m.addingTask {
-				prefix = "▸ "
-				style = selectedStyle
+				prefix = symbols.Cursor
+				style = styles.selected
 			}
 
-			checkbox := "[ ]"
+			checkbox := symbols.CheckboxEmpty
 			if t.IsDone() {
-				checkbox = "[✓]"
-				style = doneStyle
+				checkbox = symbols.CheckboxDone
+				style = styles.done
 			}
 
 			priority := t.Priority.String()
@@ -456,7 +456,7 @@ func (m model) renderNoteDetail() string {
 	}
 
 	if !m.addingTask {
-		b.WriteString(helpStyle.Render("j/k: 移動 | Enter/Space: 完了切替 | i: 追加 | d: 削除 | o: 紐づけ解除 | Tab/Esc: 戻る"))
+		b.WriteString(styles.help.Render("j/k: 移動 | Enter/Space: 完了切替 | i: 追加 | d: 削除 | o: 紐づけ解除 | Tab/Esc: 戻る"))
 	}
 
 	return b.String()
@@ -478,13 +478,6 @@ func truncateString(s string, maxWidth int) string {
 		width += rw
 	}
 	return result.String()
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func Run(noteStorage *note.Storage, taskManager *task.Manager) error {

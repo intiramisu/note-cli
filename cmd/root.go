@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/intiramisu/note-cli/internal/config"
 	"github.com/intiramisu/note-cli/internal/note"
 	"github.com/intiramisu/note-cli/internal/task"
 	"github.com/intiramisu/note-cli/internal/ui"
@@ -23,14 +24,14 @@ var rootCmd = &cobra.Command{
 
 引数なしで実行すると統合TUIが起動します。`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		notesDir := viper.GetString("notes_dir")
+		cfg := config.Global
 
-		noteStorage, err := note.NewStorage(notesDir)
+		noteStorage, err := note.NewStorage(cfg.NotesDir)
 		if err != nil {
 			return err
 		}
 
-		taskManager, err := task.NewManager(notesDir)
+		taskManager, err := task.NewManager(cfg.NotesDir)
 		if err != nil {
 			return err
 		}
@@ -66,11 +67,14 @@ func initConfig() {
 	}
 
 	// デフォルト値を設定
-	home, _ := os.UserHomeDir()
-	viper.SetDefault("notes_dir", home+"/notes")
-	viper.SetDefault("editor", "vim")
-	viper.SetDefault("default_tags", []string{})
+	config.SetDefaults()
 
 	viper.AutomaticEnv()
 	viper.ReadInConfig()
+
+	// 設定を読み込み
+	if err := config.Load(); err != nil {
+		fmt.Fprintf(os.Stderr, "設定の読み込みに失敗: %v\n", err)
+		os.Exit(1)
+	}
 }

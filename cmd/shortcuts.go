@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/intiramisu/note-cli/internal/config"
 	"github.com/intiramisu/note-cli/internal/note"
 	"github.com/intiramisu/note-cli/internal/search"
 	"github.com/spf13/cobra"
@@ -52,8 +53,9 @@ var listCmd = &cobra.Command{
 	Short: "メモ一覧を表示 (note list のショートカット)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		tagFilter, _ := cmd.Flags().GetString("tag")
+		cfg := config.Global
 
-		storage, err := note.NewStorage(viper.GetString("notes_dir"))
+		storage, err := note.NewStorage(cfg.NotesDir)
 		if err != nil {
 			return err
 		}
@@ -73,7 +75,7 @@ var listCmd = &cobra.Command{
 			if len(n.Tags) > 0 {
 				tagsStr = " [" + strings.Join(n.Tags, ", ") + "]"
 			}
-			fmt.Printf("- %s%s (%s)\n", n.Title, tagsStr, n.Modified.Format("2006-01-02 15:04"))
+			fmt.Printf("- %s%s (%s)\n", n.Title, tagsStr, n.Modified.Format(cfg.Formats.DateTime))
 		}
 
 		return nil
@@ -86,8 +88,9 @@ var showCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.Join(args, " ")
+		cfg := config.Global
 
-		storage, err := note.NewStorage(viper.GetString("notes_dir"))
+		storage, err := note.NewStorage(cfg.NotesDir)
 		if err != nil {
 			return err
 		}
@@ -98,11 +101,11 @@ var showCmd = &cobra.Command{
 		}
 
 		fmt.Printf("# %s\n", n.Title)
-		fmt.Printf("作成: %s | 更新: %s\n", n.Created.Format("2006-01-02 15:04"), n.Modified.Format("2006-01-02 15:04"))
+		fmt.Printf("作成: %s | 更新: %s\n", n.Created.Format(cfg.Formats.DateTime), n.Modified.Format(cfg.Formats.DateTime))
 		if len(n.Tags) > 0 {
 			fmt.Printf("タグ: %s\n", strings.Join(n.Tags, ", "))
 		}
-		fmt.Println(strings.Repeat("-", 40))
+		fmt.Println(strings.Repeat("-", cfg.Display.SeparatorWidth))
 		fmt.Println(n.Content)
 
 		return nil
@@ -136,8 +139,9 @@ var searchCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.Join(args, " ")
+		cfg := config.Global
 
-		results, err := search.Search(viper.GetString("notes_dir"), query)
+		results, err := search.Search(cfg.NotesDir, query)
 		if err != nil {
 			return err
 		}
@@ -149,15 +153,16 @@ var searchCmd = &cobra.Command{
 
 		fmt.Printf("「%s」の検索結果: %d件\n\n", query, len(results))
 
+		truncateWidth := cfg.Display.SearchTruncate
 		currentFile := ""
 		for _, r := range results {
 			if r.Filename != currentFile {
-				fmt.Printf("📄 %s\n", r.Title)
+				fmt.Printf("%s %s\n", cfg.Theme.Symbols.NoteIcon, r.Title)
 				currentFile = r.Filename
 			}
 			content := r.Content
-			if len(content) > 80 {
-				content = content[:77] + "..."
+			if len(content) > truncateWidth {
+				content = content[:truncateWidth-3] + "..."
 			}
 			fmt.Printf("   L%d: %s\n", r.Line, content)
 		}

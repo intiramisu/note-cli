@@ -7,6 +7,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/intiramisu/note-cli/internal/config"
 	"gopkg.in/yaml.v3"
 )
 
@@ -21,8 +22,13 @@ func NewManager(notesDir string) (*Manager, error) {
 		return nil, fmt.Errorf("ディレクトリの作成に失敗: %w", err)
 	}
 
+	tasksFile := ".tasks.yaml"
+	if config.Global != nil && config.Global.Paths.TasksFile != "" {
+		tasksFile = config.Global.Paths.TasksFile
+	}
+
 	m := &Manager{
-		filePath: filepath.Join(notesDir, ".tasks.yaml"),
+		filePath: filepath.Join(notesDir, tasksFile),
 		tasks:    []*Task{},
 		nextID:   1,
 	}

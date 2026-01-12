@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/intiramisu/note-cli/internal/config"
 	"github.com/intiramisu/note-cli/internal/note"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var dailyCmd = &cobra.Command{
@@ -27,45 +27,46 @@ var dailyCmd = &cobra.Command{
   note-cli daily +1           # 1日後`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg := config.Global
 		date := time.Now()
 		if len(args) > 0 {
-			parsed, err := parseDate(args[0])
+			parsed, err := parseDate(args[0], cfg.Formats.Date)
 			if err != nil {
 				return err
 			}
 			date = parsed
 		}
 
-		notesDir := viper.GetString("notes_dir")
+		notesDir := cfg.NotesDir
 		storage, err := note.NewStorage(notesDir)
 		if err != nil {
 			return err
 		}
 
 		// daily ディレクトリを確保
-		dailyDir := filepath.Join(notesDir, "daily")
+		dailyDir := filepath.Join(notesDir, cfg.Paths.DailyDir)
 		if err := os.MkdirAll(dailyDir, 0755); err != nil {
 			return fmt.Errorf("dailyディレクトリの作成に失敗: %w", err)
 		}
 
-		dateStr := date.Format("2006-01-02")
+		dateStr := date.Format(cfg.Formats.Date)
 		filename := dateStr + ".md"
 		filePath := filepath.Join(dailyDir, filename)
 
 		// 既存のノートがあれば開く
 		if _, err := os.Stat(filePath); err == nil {
-			fmt.Printf("📅 %s を開きます\n", dateStr)
+			fmt.Printf("%s %s を開きます\n", cfg.Theme.Symbols.DailyIcon, dateStr)
 			return openEditor(filePath)
 		}
 
 		// 新規作成
-		content, err := loadDailyTemplate(notesDir, date)
+		content, err := loadDailyTemplate(notesDir, date, cfg)
 		if err != nil {
 			return err
 		}
 
 		n := &note.Note{
-			ID:       filepath.Join("daily", dateStr),
+			ID:       filepath.Join(cfg.Paths.DailyDir, dateStr),
 			Title:    dateStr,
 			Created:  time.Now(),
 			Modified: time.Now(),
@@ -77,12 +78,12 @@ var dailyCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Printf("📅 %s を作成しました\n", dateStr)
+		fmt.Printf("%s %s を作成しました\n", cfg.Theme.Symbols.DailyIcon, dateStr)
 		return openEditor(filePath)
 	},
 }
 
-func parseDate(input string) (time.Time, error) {
+func parseDate(input string, dateFormat string) (time.Time, error) {
 	now := time.Now()
 
 	switch strings.ToLower(input) {
@@ -102,26 +103,26 @@ func parseDate(input string) (time.Time, error) {
 		}
 	}
 
-	// YYYY-MM-DD 形式
-	parsed, err := time.Parse("2006-01-02", input)
+	// 日付形式 (設定から取得)
+	parsed, err := time.Parse(dateFormat, input)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("無効な日付形式: %s (YYYY-MM-DD, yesterday, tomorrow, +N, -N が使えます)", input)
+		return time.Time{}, fmt.Errorf("無効な日付形式: %s (%s, yesterday, tomorrow, +N, -N が使えます)", input, dateFormat)
 	}
 	return parsed, nil
 }
 
-func loadDailyTemplate(notesDir string, date time.Time) (string, error) {
-	templatePath := filepath.Join(notesDir, ".templates", "daily.md")
+func loadDailyTemplate(notesDir string, date time.Time, cfg *config.Config) (string, error) {
+	templatePath := filepath.Join(notesDir, cfg.Paths.TemplatesDir, "daily.md")
 
 	data, err := os.ReadFile(templatePath)
 	if err != nil {
 		// テンプレートがなければデフォルト
-		return getDefaultDailyContent(date), nil
+		return getDefaultDailyContent(date, cfg), nil
 	}
 
 	// テンプレート内の変数を置換
 	content := string(data)
-	content = strings.ReplaceAll(content, "{{date}}", date.Format("2006-01-02"))
+	content = strings.ReplaceAll(content, "{{date}}", date.Format(cfg.Formats.Date))
 	content = strings.ReplaceAll(content, "{{year}}", date.Format("2006"))
 	content = strings.ReplaceAll(content, "{{month}}", date.Format("01"))
 	content = strings.ReplaceAll(content, "{{day}}", date.Format("02"))
@@ -130,8 +131,8 @@ func loadDailyTemplate(notesDir string, date time.Time) (string, error) {
 	return content, nil
 }
 
-func getDefaultDailyContent(date time.Time) string {
-	dateStr := date.Format("2006-01-02")
+func getDefaultDailyContent(date time.Time, cfg *config.Config) string {
+	dateStr := date.Format(cfg.Formats.Date)
 	weekday := getJapaneseWeekday(date.Weekday())
 
 	return fmt.Sprintf(`## やること
