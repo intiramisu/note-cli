@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/intiramisu/note-cli/internal/config"
 	"github.com/intiramisu/note-cli/internal/task"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var taskCmd = &cobra.Command{
@@ -16,7 +16,7 @@ var taskCmd = &cobra.Command{
 	Short:   "タスクの操作",
 	Long:    `タスクの追加、一覧表示、完了などを行います。引数なしで実行するとTUIモードで起動します。`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		manager, err := task.NewManager(viper.GetString("notes_dir"))
+		manager, err := task.NewManager(config.Global.NotesDir)
 		if err != nil {
 			return err
 		}
@@ -44,7 +44,7 @@ var taskAddCmd = &cobra.Command{
 			priority = task.PriorityLow
 		}
 
-		manager, err := task.NewManager(viper.GetString("notes_dir"))
+		manager, err := task.NewManager(config.Global.NotesDir)
 		if err != nil {
 			return err
 		}
@@ -68,7 +68,7 @@ var taskListCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		showAll, _ := cmd.Flags().GetBool("all")
 
-		manager, err := task.NewManager(viper.GetString("notes_dir"))
+		manager, err := task.NewManager(config.Global.NotesDir)
 		if err != nil {
 			return err
 		}
@@ -110,7 +110,7 @@ var taskDoneCmd = &cobra.Command{
 			return fmt.Errorf("無効なID: %s", args[0])
 		}
 
-		manager, err := task.NewManager(viper.GetString("notes_dir"))
+		manager, err := task.NewManager(config.Global.NotesDir)
 		if err != nil {
 			return err
 		}
@@ -136,7 +136,7 @@ var taskDeleteCmd = &cobra.Command{
 			return fmt.Errorf("無効なID: %s", args[0])
 		}
 
-		manager, err := task.NewManager(viper.GetString("notes_dir"))
+		manager, err := task.NewManager(config.Global.NotesDir)
 		if err != nil {
 			return err
 		}

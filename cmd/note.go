@@ -40,7 +40,7 @@ var noteCreateCmd = &cobra.Command{
 		tags, _ := cmd.Flags().GetStringSlice("tag")
 		templateName, _ := cmd.Flags().GetString("template")
 
-		notesDir := viper.GetString("notes_dir")
+		notesDir := config.Global.NotesDir
 		storage, err := note.NewStorage(notesDir)
 		if err != nil {
 			return err
@@ -154,7 +154,7 @@ var noteEditCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.Join(args, " ")
 
-		storage, err := note.NewStorage(viper.GetString("notes_dir"))
+		storage, err := note.NewStorage(config.Global.NotesDir)
 		if err != nil {
 			return err
 		}
@@ -176,7 +176,7 @@ var noteDeleteCmd = &cobra.Command{
 		query := strings.Join(args, " ")
 		force, _ := cmd.Flags().GetBool("force")
 
-		storage, err := note.NewStorage(viper.GetString("notes_dir"))
+		storage, err := note.NewStorage(config.Global.NotesDir)
 		if err != nil {
 			return err
 		}

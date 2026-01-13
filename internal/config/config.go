@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -136,7 +137,18 @@ func Load() error {
 	if err := viper.Unmarshal(Global); err != nil {
 		return err
 	}
+	// ~/ を展開
+	Global.NotesDir = expandTilde(Global.NotesDir)
 	return nil
+}
+
+// expandTilde はパスの先頭の ~/ をホームディレクトリに展開する
+func expandTilde(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		home, _ := os.UserHomeDir()
+		return filepath.Join(home, path[2:])
+	}
+	return path
 }
 
 // GetTemplatesPath はテンプレートディレクトリの絶対パスを返す

@@ -8,7 +8,6 @@ import (
 	"github.com/intiramisu/note-cli/internal/note"
 	"github.com/intiramisu/note-cli/internal/search"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // ルートレベルのショートカットコマンド（メモ操作をより短く）
@@ -22,7 +21,7 @@ var createCmd = &cobra.Command{
 		tags, _ := cmd.Flags().GetStringSlice("tag")
 		templateName, _ := cmd.Flags().GetString("template")
 
-		notesDir := viper.GetString("notes_dir")
+		notesDir := config.Global.NotesDir
 		storage, err := note.NewStorage(notesDir)
 		if err != nil {
 			return err
@@ -119,7 +118,7 @@ var editCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.Join(args, " ")
 
-		storage, err := note.NewStorage(viper.GetString("notes_dir"))
+		storage, err := note.NewStorage(config.Global.NotesDir)
 		if err != nil {
 			return err
 		}
