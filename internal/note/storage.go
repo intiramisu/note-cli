@@ -45,20 +45,32 @@ func (s *Storage) SaveAt(note *Note, path string) error {
 }
 
 func (s *Storage) List(tagFilter string) ([]*Note, error) {
-	entries, err := os.ReadDir(s.notesDir)
-	if err != nil {
-		return nil, fmt.Errorf("メモディレクトリの読み取りに失敗: %w", err)
-	}
-
 	var notes []*Note
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
-			continue
+
+	err := filepath.WalkDir(s.notesDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // エラーがあってもスキップして続行
 		}
 
-		note, err := s.Load(entry.Name())
+		// .templates ディレクトリはスキップ
+		if d.IsDir() && d.Name() == ".templates" {
+			return filepath.SkipDir
+		}
+
+		// ディレクトリや .md 以外はスキップ
+		if d.IsDir() || !strings.HasSuffix(d.Name(), ".md") {
+			return nil
+		}
+
+		// notesDir からの相対パスを取得
+		relPath, err := filepath.Rel(s.notesDir, path)
 		if err != nil {
-			continue
+			return nil
+		}
+
+		note, err := s.Load(relPath)
+		if err != nil {
+			return nil
 		}
 
 		if tagFilter != "" {
@@ -70,11 +82,16 @@ func (s *Storage) List(tagFilter string) ([]*Note, error) {
 				}
 			}
 			if !hasTag {
-				continue
+				return nil
 			}
 		}
 
 		notes = append(notes, note)
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("メモディレクトリの読み取りに失敗: %w", err)
 	}
 
 	sort.Slice(notes, func(i, j int) bool {
