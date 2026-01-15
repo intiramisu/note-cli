@@ -16,7 +16,7 @@ var (
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "バージョン情報を表示",
+	Short: "Show version info",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("note-cli %s\n", Version)
 		fmt.Printf("  Commit:     %s\n", Commit)

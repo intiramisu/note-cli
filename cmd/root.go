@@ -16,13 +16,7 @@ var cfgFile string
 
 var rootCmd = &cobra.Command{
 	Use:   "note-cli",
-	Short: "CLIベースのメモ管理・タスク管理ツール",
-	Long: `note-cli はターミナルからメモとタスクを管理するための
-軽量で高速な CLI ツールです。
-
-コマンドライン中心のワークフローを好む開発者向けに設計されています。
-
-引数なしで実行すると統合TUIが起動します。`,
+	Short: "A lightweight CLI tool for notes and tasks",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := config.Global
 
@@ -50,7 +44,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "設定ファイルのパス (デフォルト: ~/.config/note-cli/config.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file path")
 }
 
 func initConfig() {

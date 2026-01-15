@@ -26,14 +26,12 @@ func openEditor(filePath string) error {
 var noteCmd = &cobra.Command{
 	Use:     "note",
 	Aliases: []string{"n"},
-	Short:   "メモの操作",
-	Long:    `メモの作成、編集、一覧表示、検索などを行います。`,
+	Short:   "Manage notes",
 }
 
 var noteCreateCmd = &cobra.Command{
-	Use:   "create <タイトル>",
-	Short: "新規メモを作成",
-	Long:  `指定したタイトルで新しいメモを作成し、エディタで開きます。`,
+	Use:   "create <title>",
+	Short: "Create a new note",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		title := strings.Join(args, " ")
@@ -82,8 +80,7 @@ func loadTemplate(notesDir, name, title string) (string, error) {
 
 var noteListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "メモの一覧を表示",
-	Long:  `保存されているメモの一覧を表示します。`,
+	Short: "List all notes",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		tagFilter, _ := cmd.Flags().GetString("tag")
 		cfg := config.Global
@@ -116,9 +113,8 @@ var noteListCmd = &cobra.Command{
 }
 
 var noteShowCmd = &cobra.Command{
-	Use:   "show <タイトル|ファイル名>",
-	Short: "メモの内容を表示",
-	Long:  `指定したメモの内容を表示します。`,
+	Use:   "show <title>",
+	Short: "Show note content",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.Join(args, " ")
@@ -147,9 +143,8 @@ var noteShowCmd = &cobra.Command{
 }
 
 var noteEditCmd = &cobra.Command{
-	Use:   "edit <タイトル|ファイル名>",
-	Short: "メモを編集",
-	Long:  `指定したメモをエディタで開いて編集します。`,
+	Use:   "edit <title>",
+	Short: "Edit a note",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.Join(args, " ")
@@ -168,9 +163,8 @@ var noteEditCmd = &cobra.Command{
 }
 
 var noteDeleteCmd = &cobra.Command{
-	Use:   "delete <タイトル|ファイル名>",
-	Short: "メモを削除",
-	Long:  `指定したメモを削除します。`,
+	Use:   "delete <title>",
+	Short: "Delete a note",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.Join(args, " ")
@@ -206,9 +200,8 @@ var noteDeleteCmd = &cobra.Command{
 }
 
 var noteSearchCmd = &cobra.Command{
-	Use:   "search <クエリ>",
-	Short: "メモを全文検索",
-	Long:  `メモの内容を全文検索します。`,
+	Use:   "search <query>",
+	Short: "Full-text search notes",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.Join(args, " ")
@@ -253,8 +246,8 @@ func init() {
 	noteCmd.AddCommand(noteDeleteCmd)
 	noteCmd.AddCommand(noteSearchCmd)
 
-	noteCreateCmd.Flags().StringSliceP("tag", "t", []string{}, "タグを指定 (複数指定可)")
-	noteCreateCmd.Flags().StringP("template", "T", "", "テンプレート名 (.templates/内のファイル)")
-	noteListCmd.Flags().StringP("tag", "t", "", "タグでフィルタ")
-	noteDeleteCmd.Flags().BoolP("force", "f", false, "確認なしで削除")
+	noteCreateCmd.Flags().StringSliceP("tag", "t", []string{}, "tags (can be specified multiple times)")
+	noteCreateCmd.Flags().StringP("template", "T", "", "template name")
+	noteListCmd.Flags().StringP("tag", "t", "", "filter by tag")
+	noteDeleteCmd.Flags().BoolP("force", "f", false, "delete without confirmation")
 }

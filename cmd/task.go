@@ -13,8 +13,7 @@ import (
 var taskCmd = &cobra.Command{
 	Use:     "task",
 	Aliases: []string{"t"},
-	Short:   "タスクの操作",
-	Long:    `タスクの追加、一覧表示、完了などを行います。引数なしで実行するとTUIモードで起動します。`,
+	Short:   "Manage tasks",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		manager, err := task.NewManager(config.Global.NotesDir)
 		if err != nil {
@@ -25,9 +24,8 @@ var taskCmd = &cobra.Command{
 }
 
 var taskAddCmd = &cobra.Command{
-	Use:   "add <説明>",
-	Short: "新規タスクを追加",
-	Long:  `新しいタスクを追加します。`,
+	Use:   "add <description>",
+	Short: "Add a new task",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		description := strings.Join(args, " ")
@@ -63,8 +61,7 @@ var taskAddCmd = &cobra.Command{
 
 var taskListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "タスク一覧を表示",
-	Long:  `タスクの一覧を表示します。`,
+	Short: "List tasks",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		showAll, _ := cmd.Flags().GetBool("all")
 
@@ -101,8 +98,7 @@ var taskListCmd = &cobra.Command{
 
 var taskDoneCmd = &cobra.Command{
 	Use:   "done <id>",
-	Short: "タスクを完了",
-	Long:  `指定したIDのタスクを完了状態にします。`,
+	Short: "Mark a task as done",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, err := strconv.Atoi(args[0])
@@ -127,8 +123,7 @@ var taskDoneCmd = &cobra.Command{
 
 var taskDeleteCmd = &cobra.Command{
 	Use:   "delete <id>",
-	Short: "タスクを削除",
-	Long:  `指定したIDのタスクを削除します。`,
+	Short: "Delete a task",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id, err := strconv.Atoi(args[0])
@@ -163,7 +158,7 @@ func init() {
 	taskCmd.AddCommand(taskDoneCmd)
 	taskCmd.AddCommand(taskDeleteCmd)
 
-	taskAddCmd.Flags().StringP("priority", "p", "", "優先度 (1/high, 2/medium, 3/low)")
-	taskAddCmd.Flags().StringP("note", "n", "", "紐づけるメモのタイトル")
-	taskListCmd.Flags().BoolP("all", "a", false, "完了済みタスクも表示")
+	taskAddCmd.Flags().StringP("priority", "p", "", "priority (1/high, 2/medium, 3/low)")
+	taskAddCmd.Flags().StringP("note", "n", "", "link to a note")
+	taskListCmd.Flags().BoolP("all", "a", false, "show completed tasks too")
 }

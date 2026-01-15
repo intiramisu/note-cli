@@ -13,18 +13,9 @@ import (
 )
 
 var dailyCmd = &cobra.Command{
-	Use:     "daily [日付]",
+	Use:     "daily [date]",
 	Aliases: []string{"d"},
-	Short:   "デイリーノートを開く",
-	Long: `今日のデイリーノートを開きます。存在しない場合は新規作成します。
-
-日付の指定方法:
-  note-cli daily              # 今日
-  note-cli daily yesterday    # 昨日
-  note-cli daily tomorrow     # 明日
-  note-cli daily 2025-01-11   # 指定日 (YYYY-MM-DD)
-  note-cli daily -1           # 1日前
-  note-cli daily +1           # 1日後`,
+	Short:   "Open daily note",
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := config.Global

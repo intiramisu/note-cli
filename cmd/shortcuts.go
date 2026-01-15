@@ -13,8 +13,8 @@ import (
 // ルートレベルのショートカットコマンド（メモ操作をより短く）
 
 var createCmd = &cobra.Command{
-	Use:   "create <タイトル>",
-	Short: "新規メモを作成 (note create のショートカット)",
+	Use:   "create <title>",
+	Short: "Create a new note",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		title := strings.Join(args, " ")
@@ -49,7 +49,7 @@ var createCmd = &cobra.Command{
 
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "メモ一覧を表示 (note list のショートカット)",
+	Short: "List all notes",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		tagFilter, _ := cmd.Flags().GetString("tag")
 		cfg := config.Global
@@ -82,8 +82,8 @@ var listCmd = &cobra.Command{
 }
 
 var showCmd = &cobra.Command{
-	Use:   "show <タイトル|ファイル名>",
-	Short: "メモの内容を表示 (note show のショートカット)",
+	Use:   "show <title>",
+	Short: "Show note content",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.Join(args, " ")
@@ -112,8 +112,8 @@ var showCmd = &cobra.Command{
 }
 
 var editCmd = &cobra.Command{
-	Use:   "edit <タイトル|ファイル名>",
-	Short: "メモを編集 (note edit のショートカット)",
+	Use:   "edit <title>",
+	Short: "Edit a note",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.Join(args, " ")
@@ -133,8 +133,8 @@ var editCmd = &cobra.Command{
 }
 
 var searchCmd = &cobra.Command{
-	Use:   "search <クエリ>",
-	Short: "メモを全文検索 (note search のショートカット)",
+	Use:   "search <query>",
+	Short: "Full-text search notes",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.Join(args, " ")
@@ -177,7 +177,7 @@ func init() {
 	rootCmd.AddCommand(editCmd)
 	rootCmd.AddCommand(searchCmd)
 
-	createCmd.Flags().StringSliceP("tag", "t", []string{}, "タグを指定 (複数指定可)")
-	createCmd.Flags().StringP("template", "T", "", "テンプレート名 (.templates/内のファイル)")
-	listCmd.Flags().StringP("tag", "t", "", "タグでフィルタ")
+	createCmd.Flags().StringSliceP("tag", "t", []string{}, "tags (can be specified multiple times)")
+	createCmd.Flags().StringP("template", "T", "", "template name")
+	listCmd.Flags().StringP("tag", "t", "", "filter by tag")
 }
