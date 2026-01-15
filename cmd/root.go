@@ -15,8 +15,9 @@ import (
 var cfgFile string
 
 var rootCmd = &cobra.Command{
-	Use:   "note-cli",
-	Short: "A lightweight CLI tool for notes and tasks",
+	Use:     "note-cli",
+	Short:   "A lightweight CLI tool for notes and tasks",
+	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := config.Global
 
@@ -45,6 +46,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file path")
+	rootCmd.SetVersionTemplate("{{.Version}}\n")
 }
 
 func initConfig() {
