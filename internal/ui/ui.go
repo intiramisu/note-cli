@@ -72,6 +72,8 @@ func NewModel(noteStorage *note.Storage, taskManager *task.Manager) model {
 	ti := textinput.New()
 	ti.Placeholder = "タスクを入力..."
 	ti.CharLimit = cfg.Display.TaskCharLimit
+	ti.Width = cfg.Display.InputWidth
+	ti.SetValue("")
 
 	return model{
 		noteStorage:  noteStorage,
@@ -164,6 +166,7 @@ func (m model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "i":
 		if m.mode == modeNoteDetail {
 			m.addingTask = true
+			m.taskInput.Reset()
 			m.taskInput.Focus()
 			m.taskPriority = task.PriorityMedium
 			return m, textinput.Blink
