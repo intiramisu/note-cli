@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -354,7 +355,13 @@ func (m model) renderNotesList() string {
 			if titleMaxWidth < 10 {
 				titleMaxWidth = 10
 			}
-			title := truncateString(n.Title, titleMaxWidth)
+			// サブディレクトリにあるノートはパスを表示
+			dir := filepath.Dir(n.ID)
+			titleDisplay := n.Title
+			if dir != "." {
+				titleDisplay = dir + "/" + n.Title
+			}
+			title := truncateString(titleDisplay, titleMaxWidth)
 			// パディングを計算して右揃えの日付表示
 			titleWidth := runewidth.StringWidth(title)
 			padding := titleMaxWidth - titleWidth

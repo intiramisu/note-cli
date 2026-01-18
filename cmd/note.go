@@ -105,7 +105,13 @@ var noteListCmd = &cobra.Command{
 			if len(n.Tags) > 0 {
 				tagsStr = " [" + strings.Join(n.Tags, ", ") + "]"
 			}
-			fmt.Printf("- %s%s (%s)\n", n.Title, tagsStr, n.Modified.Format(cfg.Formats.DateTime))
+			// サブディレクトリにあるノートはパスを表示
+			dir := filepath.Dir(n.ID)
+			titleDisplay := n.Title
+			if dir != "." {
+				titleDisplay = dir + "/" + n.Title
+			}
+			fmt.Printf("- %s%s (%s)\n", titleDisplay, tagsStr, n.Modified.Format(cfg.Formats.DateTime))
 		}
 
 		return nil
