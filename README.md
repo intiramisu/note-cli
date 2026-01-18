@@ -29,6 +29,13 @@ note-cli create "買い物リスト"
 note-cli t
 ```
 
+## バージョン確認
+
+```bash
+note-cli -v           # シンプルなバージョン表示
+note-cli version      # 詳細なビルド情報
+```
+
 ## ショートカット
 
 よく使うコマンドは短く書けます:
@@ -67,6 +74,9 @@ note-cli list
 # タグでフィルタ
 note-cli list --tag go
 ```
+
+サブディレクトリにあるメモは `projects/メモ名` のようにパス付きで表示されます。
+編集時もパスで指定できます: `note-cli edit projects/メモ名`
 
 ### メモを表示・編集・削除
 
@@ -175,8 +185,16 @@ note-cli t add "レポート提出" -p 1
 # メモに紐づけて追加
 note-cli t add "議事録まとめ" -n "会議メモ"
 
-# タスク一覧（紐づきメモも表示）
+# 期限付きで追加
+note-cli t add "レポート提出" -d 2026-01-25    # ISO形式
+note-cli t add "明日やること" -d tomorrow       # tomorrow/tom
+note-cli t add "週末までに" -d +3               # 3日後
+
+# タスク一覧（紐づきメモ・期限も表示）
 note-cli t list
+
+# 期限順でソート
+note-cli t list -d
 
 # 完了済みも含めて表示
 note-cli t list -a
@@ -187,6 +205,12 @@ note-cli t done 1
 # タスクを削除
 note-cli t delete 1
 ```
+
+### 期限の表示
+
+タスク一覧では期限が以下のように表示されます:
+- 📅 01/20 - 期限あり
+- ⚠️ 01/18 - 期限切れ（過ぎた日付）
 
 ## 統合TUI（メモ+タスク連携）
 
