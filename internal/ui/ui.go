@@ -346,9 +346,22 @@ func (m model) renderNotesList() string {
 				style = styles.selected
 			}
 
-			title := truncateString(n.Title, m.width-10)
 			date := n.Modified.Format(formats.Date)
-			line := fmt.Sprintf("%s%-*s %s", prefix, m.width-15, title, date)
+			dateWidth := runewidth.StringWidth(date)
+			prefixWidth := runewidth.StringWidth(prefix)
+			// タイトル用の幅 = 画面幅 - prefix幅 - 日付幅 - スペース2つ
+			titleMaxWidth := m.width - prefixWidth - dateWidth - 2
+			if titleMaxWidth < 10 {
+				titleMaxWidth = 10
+			}
+			title := truncateString(n.Title, titleMaxWidth)
+			// パディングを計算して右揃えの日付表示
+			titleWidth := runewidth.StringWidth(title)
+			padding := titleMaxWidth - titleWidth
+			if padding < 0 {
+				padding = 0
+			}
+			line := fmt.Sprintf("%s%s%s %s", prefix, title, strings.Repeat(" ", padding), date)
 			b.WriteString(style.Render(line))
 			b.WriteString("\n")
 		}

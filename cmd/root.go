@@ -45,7 +45,11 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
+	// ビルド情報からバージョン情報を取得（go install対応）
+	initVersionInfo()
+
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file path")
+	rootCmd.Version = Version
 	rootCmd.SetVersionTemplate("{{.Version}}\n")
 }
 

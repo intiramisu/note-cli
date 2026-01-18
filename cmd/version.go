@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"runtime"
+	"runtime/debug"
 
 	"github.com/spf13/cobra"
 )
@@ -13,6 +14,39 @@ var (
 	Commit    = "unknown"
 	BuildDate = "unknown"
 )
+
+func initVersionInfo() {
+	// go install でビルドされた場合のフォールバック
+	if info, ok := debug.ReadBuildInfo(); ok {
+		// バージョン情報（go install時はモジュールバージョン）
+		if Version == "dev" && info.Main.Version != "" && info.Main.Version != "(devel)" {
+			Version = info.Main.Version
+		}
+
+		// VCS情報から取得
+		for _, setting := range info.Settings {
+			switch setting.Key {
+			case "vcs.revision":
+				if Commit == "unknown" && setting.Value != "" {
+					// 短縮ハッシュ
+					if len(setting.Value) > 7 {
+						Commit = setting.Value[:7]
+					} else {
+						Commit = setting.Value
+					}
+				}
+			case "vcs.time":
+				if BuildDate == "unknown" && setting.Value != "" {
+					BuildDate = setting.Value
+				}
+			case "vcs.modified":
+				if setting.Value == "true" && Commit != "unknown" {
+					Commit += "-dirty"
+				}
+			}
+		}
+	}
+}
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
