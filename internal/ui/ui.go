@@ -45,6 +45,7 @@ type viewMode int
 const (
 	modeNotesList viewMode = iota
 	modeNoteDetail
+	modeAttachTask
 )
 
 type model struct {
@@ -64,6 +65,10 @@ type model struct {
 	addingTask   bool
 	taskInput    textinput.Model
 	taskPriority task.Priority
+
+	// タスク紐づけ用
+	unlinkedTasks    []*task.Task
+	selectedUnlinked int
 }
 
 func NewModel(noteStorage *note.Storage, taskManager *task.Manager) model {
@@ -110,6 +115,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if m.addingTask {
 			return m.handleTaskInput(msg)
+		}
+		if m.mode == modeAttachTask {
+			return m.handleAttachTask(msg)
 		}
 		return m.handleKeyPress(msg)
 
@@ -181,6 +189,15 @@ func (m model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "o":
 		if m.mode == modeNoteDetail && len(m.tasks) > 0 {
 			m.unlinkTask()
+		}
+
+	case "a":
+		if m.mode == modeNoteDetail {
+			m.loadUnlinkedTasks()
+			if len(m.unlinkedTasks) > 0 {
+				m.mode = modeAttachTask
+				m.selectedUnlinked = 0
+			}
 		}
 	}
 
@@ -298,6 +315,44 @@ func (m *model) addTask() {
 	}
 }
 
+func (m *model) loadUnlinkedTasks() {
+	allTasks := m.taskManager.List(false)
+	m.unlinkedTasks = []*task.Task{}
+	for _, t := range allTasks {
+		if !t.HasNote() {
+			m.unlinkedTasks = append(m.unlinkedTasks, t)
+		}
+	}
+}
+
+func (m model) handleAttachTask(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "j", "down":
+		if m.selectedUnlinked < len(m.unlinkedTasks)-1 {
+			m.selectedUnlinked++
+		}
+
+	case "k", "up":
+		if m.selectedUnlinked > 0 {
+			m.selectedUnlinked--
+		}
+
+	case "enter":
+		if m.selectedUnlinked >= 0 && m.selectedUnlinked < len(m.unlinkedTasks) {
+			t := m.unlinkedTasks[m.selectedUnlinked]
+			noteID := m.notes[m.selectedNote].ID
+			m.taskManager.SetNoteID(t.ID, noteID)
+			m.loadRelatedTasks()
+			m.mode = modeNoteDetail
+		}
+
+	case "esc", "q":
+		m.mode = modeNoteDetail
+	}
+
+	return m, nil
+}
+
 func (m model) View() string {
 	if m.width == 0 {
 		return "Loading..."
@@ -308,6 +363,8 @@ func (m model) View() string {
 		return m.renderNotesList()
 	case modeNoteDetail:
 		return m.renderNoteDetail()
+	case modeAttachTask:
+		return m.renderAttachTask()
 	}
 	return ""
 }
@@ -487,8 +544,70 @@ func (m model) renderNoteDetail() string {
 	}
 
 	if !m.addingTask {
-		b.WriteString(styles.help.Render("j/k: 移動 | Enter/Space: 完了切替 | i: 追加 | d: 削除 | o: 紐づけ解除 | Tab/Esc: 戻る"))
+		b.WriteString(styles.help.Render("j/k: 移動 | Enter/Space: 完了切替 | i: 追加 | a: 紐づけ | d: 削除 | o: 解除 | Tab/Esc: 戻る"))
 	}
+
+	return b.String()
+}
+
+func (m model) renderAttachTask() string {
+	cfg := config.Global
+	symbols := cfg.Theme.Symbols
+
+	var b strings.Builder
+
+	// タイトル
+	n := m.notes[m.selectedNote]
+	b.WriteString(styles.title.Render(symbols.NoteIcon + " " + n.Title + " - タスクを紐づけ"))
+	b.WriteString("\n\n")
+
+	if len(m.unlinkedTasks) == 0 {
+		b.WriteString(styles.meta.Render("紐づけ可能なタスクがありません"))
+		b.WriteString("\n")
+	} else {
+		b.WriteString(styles.meta.Render("紐づけるタスクを選択:"))
+		b.WriteString("\n\n")
+
+		maxItems := m.height - 8
+		if maxItems < 3 {
+			maxItems = 3
+		}
+
+		start := 0
+		if m.selectedUnlinked >= maxItems {
+			start = m.selectedUnlinked - maxItems + 1
+		}
+		end := start + maxItems
+		if end > len(m.unlinkedTasks) {
+			end = len(m.unlinkedTasks)
+		}
+
+		for i := start; i < end; i++ {
+			t := m.unlinkedTasks[i]
+			prefix := symbols.CursorEmpty
+			style := styles.normal
+			if i == m.selectedUnlinked {
+				prefix = symbols.Cursor
+				style = styles.selected
+			}
+
+			priority := ""
+			if t.Priority != task.PriorityNone {
+				priority = fmt.Sprintf("(%s) ", t.Priority.String())
+			}
+			dueStr := ""
+			if t.HasDueDate() {
+				dueStr = fmt.Sprintf(" 📅%s", t.DueDate.Format("01/02"))
+			}
+			desc := truncateString(t.Description, m.width-20)
+			line := fmt.Sprintf("%s%s%s%s", prefix, priority, desc, dueStr)
+			b.WriteString(style.Render(line))
+			b.WriteString("\n")
+		}
+	}
+
+	b.WriteString("\n")
+	b.WriteString(styles.help.Render("j/k: 移動 | Enter: 紐づけ | Esc: キャンセル"))
 
 	return b.String()
 }
