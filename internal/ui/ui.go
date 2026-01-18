@@ -471,8 +471,16 @@ func (m model) renderNoteDetail() string {
 			}
 
 			priority := t.Priority.String()
-			desc := truncateString(t.Description, m.width-20)
-			line := fmt.Sprintf("%s%s (%s) %s", prefix, checkbox, priority, desc)
+			dueStr := ""
+			if t.HasDueDate() {
+				if t.IsOverdue() {
+					dueStr = " ⚠️" + t.DueDate.Format("01/02")
+				} else {
+					dueStr = " 📅" + t.DueDate.Format("01/02")
+				}
+			}
+			desc := truncateString(t.Description, m.width-25-len(dueStr))
+			line := fmt.Sprintf("%s%s (%s) %s%s", prefix, checkbox, priority, desc, dueStr)
 			b.WriteString(style.Render(line))
 			b.WriteString("\n")
 		}

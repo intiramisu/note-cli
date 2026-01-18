@@ -382,6 +382,23 @@ func (m Model) renderTaskLine(task *Task, colWidth int, isSelected bool) string 
 		}
 	}
 
+	// 期限がある場合は表示
+	if task.HasDueDate() {
+		result.WriteString("\n")
+		dueLabel := "📅 " + task.DueDate.Format("01/02")
+		if task.IsOverdue() {
+			dueLabel = "⚠️ " + task.DueDate.Format("01/02")
+		}
+		result.WriteString(strings.Repeat(" ", prefixWidth))
+		if task.IsOverdue() {
+			result.WriteString(styles.priorityHigh.Render(dueLabel))
+		} else if task.IsDueSoon(3) {
+			result.WriteString(styles.priorityMedium.Render(dueLabel))
+		} else {
+			result.WriteString(styles.help.Render(dueLabel))
+		}
+	}
+
 	// 紐づきメモがある場合は表示
 	if task.HasNote() {
 		result.WriteString("\n")

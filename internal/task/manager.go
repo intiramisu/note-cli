@@ -57,6 +57,34 @@ func (m *Manager) AddWithNote(description string, priority Priority, noteID stri
 	return task
 }
 
+func (m *Manager) AddWithDue(description string, priority Priority, dueDate time.Time) *Task {
+	task := NewTask(m.nextID, description, priority)
+	task.DueDate = dueDate
+	m.tasks = append(m.tasks, task)
+	m.nextID++
+	m.save()
+	return task
+}
+
+func (m *Manager) AddFull(description string, priority Priority, noteID string, dueDate time.Time) *Task {
+	task := NewTask(m.nextID, description, priority)
+	task.NoteID = noteID
+	task.DueDate = dueDate
+	m.tasks = append(m.tasks, task)
+	m.nextID++
+	m.save()
+	return task
+}
+
+func (m *Manager) SetDueDate(id int, dueDate time.Time) error {
+	task, err := m.Get(id)
+	if err != nil {
+		return err
+	}
+	task.DueDate = dueDate
+	return m.save()
+}
+
 func (m *Manager) List(showDone bool) []*Task {
 	var result []*Task
 	for _, t := range m.tasks {
@@ -85,6 +113,37 @@ func (m *Manager) sortByPriority(tasks []*Task) []*Task {
 		return tasks[i].Created.Before(tasks[j].Created)
 	})
 	return tasks
+}
+
+func (m *Manager) sortByDueDate(tasks []*Task) []*Task {
+	sort.Slice(tasks, func(i, j int) bool {
+		// 期限なしは後ろに
+		if !tasks[i].HasDueDate() && !tasks[j].HasDueDate() {
+			return tasks[i].Priority > tasks[j].Priority
+		}
+		if !tasks[i].HasDueDate() {
+			return false
+		}
+		if !tasks[j].HasDueDate() {
+			return true
+		}
+		// 期限が早い順
+		if !tasks[i].DueDate.Equal(tasks[j].DueDate) {
+			return tasks[i].DueDate.Before(tasks[j].DueDate)
+		}
+		return tasks[i].Priority > tasks[j].Priority
+	})
+	return tasks
+}
+
+func (m *Manager) ListByDueDate(showDone bool) []*Task {
+	var result []*Task
+	for _, t := range m.tasks {
+		if showDone || !t.IsDone() {
+			result = append(result, t)
+		}
+	}
+	return m.sortByDueDate(result)
 }
 
 func (m *Manager) Get(id int) (*Task, error) {

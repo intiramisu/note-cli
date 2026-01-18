@@ -4,11 +4,50 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/intiramisu/note-cli/internal/config"
 	"github.com/intiramisu/note-cli/internal/task"
 	"github.com/spf13/cobra"
 )
+
+// parseDueDate parses flexible date formats
+func parseDueDate(s string) (time.Time, error) {
+	if s == "" {
+		return time.Time{}, nil
+	}
+
+	s = strings.ToLower(strings.TrimSpace(s))
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
+
+	switch s {
+	case "today":
+		return today, nil
+	case "tomorrow", "tom":
+		return today.AddDate(0, 0, 1), nil
+	}
+
+	// +N days format
+	if strings.HasPrefix(s, "+") {
+		days, err := strconv.Atoi(s[1:])
+		if err == nil {
+			return today.AddDate(0, 0, days), nil
+		}
+	}
+
+	// ISO format: 2026-01-20
+	if t, err := time.ParseInLocation("2006-01-02", s, now.Location()); err == nil {
+		return time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 0, now.Location()), nil
+	}
+
+	// Short format: 01-20 (current year)
+	if t, err := time.ParseInLocation("01-02", s, now.Location()); err == nil {
+		return time.Date(now.Year(), t.Month(), t.Day(), 23, 59, 59, 0, now.Location()), nil
+	}
+
+	return time.Time{}, fmt.Errorf("invalid date format: %s", s)
+}
 
 var taskCmd = &cobra.Command{
 	Use:     "task",
@@ -31,6 +70,7 @@ var taskAddCmd = &cobra.Command{
 		description := strings.Join(args, " ")
 		priorityStr, _ := cmd.Flags().GetString("priority")
 		noteID, _ := cmd.Flags().GetString("note")
+		dueStr, _ := cmd.Flags().GetString("due")
 
 		priority := task.PriorityNone
 		switch priorityStr {
@@ -42,19 +82,31 @@ var taskAddCmd = &cobra.Command{
 			priority = task.PriorityLow
 		}
 
+		dueDate, err := parseDueDate(dueStr)
+		if err != nil {
+			return err
+		}
+
 		manager, err := task.NewManager(config.Global.NotesDir)
 		if err != nil {
 			return err
 		}
 
-		var t *task.Task
+		t := manager.AddFull(description, priority, noteID, dueDate)
+
+		// 出力メッセージを構築
+		var extras []string
 		if noteID != "" {
-			t = manager.AddWithNote(description, priority, noteID)
-			fmt.Printf("タスクを追加しました: [%d] %s (📄 %s)\n", t.ID, t.Description, noteID)
-		} else {
-			t = manager.Add(description, priority)
-			fmt.Printf("タスクを追加しました: [%d] %s\n", t.ID, t.Description)
+			extras = append(extras, fmt.Sprintf("📄 %s", noteID))
 		}
+		if t.HasDueDate() {
+			extras = append(extras, fmt.Sprintf("📅 %s", t.DueDate.Format("2006-01-02")))
+		}
+		extraStr := ""
+		if len(extras) > 0 {
+			extraStr = " (" + strings.Join(extras, ", ") + ")"
+		}
+		fmt.Printf("タスクを追加しました: [%d] %s%s\n", t.ID, t.Description, extraStr)
 		return nil
 	},
 }
@@ -64,13 +116,20 @@ var taskListCmd = &cobra.Command{
 	Short: "List tasks",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		showAll, _ := cmd.Flags().GetBool("all")
+		sortByDue, _ := cmd.Flags().GetBool("due")
 
 		manager, err := task.NewManager(config.Global.NotesDir)
 		if err != nil {
 			return err
 		}
 
-		tasks := manager.List(showAll)
+		var tasks []*task.Task
+		if sortByDue {
+			tasks = manager.ListByDueDate(showAll)
+		} else {
+			tasks = manager.List(showAll)
+		}
+
 		if len(tasks) == 0 {
 			fmt.Println("タスクがありません")
 			return nil
@@ -89,7 +148,18 @@ var taskListCmd = &cobra.Command{
 			if t.HasNote() {
 				noteStr = fmt.Sprintf(" 📄 %s", t.NoteID)
 			}
-			fmt.Printf("%s [%d]%s %s%s\n", checkbox, t.ID, priorityStr, t.Description, noteStr)
+			dueStr := ""
+			if t.HasDueDate() {
+				dueLabel := t.DueDate.Format("01/02")
+				if t.IsOverdue() {
+					dueStr = fmt.Sprintf(" ⚠️ %s", dueLabel)
+				} else if t.IsDueSoon(3) {
+					dueStr = fmt.Sprintf(" 📅 %s", dueLabel)
+				} else {
+					dueStr = fmt.Sprintf(" 📅 %s", dueLabel)
+				}
+			}
+			fmt.Printf("%s [%d]%s %s%s%s\n", checkbox, t.ID, priorityStr, t.Description, noteStr, dueStr)
 		}
 
 		return nil
@@ -160,5 +230,7 @@ func init() {
 
 	taskAddCmd.Flags().StringP("priority", "p", "", "priority (1/high, 2/medium, 3/low)")
 	taskAddCmd.Flags().StringP("note", "n", "", "link to a note")
+	taskAddCmd.Flags().StringP("due", "d", "", "due date (2006-01-02, tomorrow, +3)")
 	taskListCmd.Flags().BoolP("all", "a", false, "show completed tasks too")
+	taskListCmd.Flags().BoolP("due", "d", false, "sort by due date")
 }

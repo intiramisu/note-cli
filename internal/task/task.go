@@ -39,6 +39,7 @@ type Task struct {
 	Priority    Priority  `yaml:"priority"`
 	Status      Status    `yaml:"status"`
 	NoteID      string    `yaml:"note_id,omitempty"`
+	DueDate     time.Time `yaml:"due_date,omitempty"`
 	Created     time.Time `yaml:"created"`
 	Completed   time.Time `yaml:"completed,omitempty"`
 }
@@ -68,4 +69,27 @@ func (t *Task) SetNoteID(noteID string) {
 
 func (t *Task) HasNote() bool {
 	return t.NoteID != ""
+}
+
+func (t *Task) SetDueDate(due time.Time) {
+	t.DueDate = due
+}
+
+func (t *Task) HasDueDate() bool {
+	return !t.DueDate.IsZero()
+}
+
+func (t *Task) IsOverdue() bool {
+	if !t.HasDueDate() || t.IsDone() {
+		return false
+	}
+	return time.Now().After(t.DueDate)
+}
+
+func (t *Task) IsDueSoon(days int) bool {
+	if !t.HasDueDate() || t.IsDone() {
+		return false
+	}
+	deadline := time.Now().AddDate(0, 0, days)
+	return t.DueDate.Before(deadline) && !t.IsOverdue()
 }
