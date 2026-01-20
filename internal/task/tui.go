@@ -3,47 +3,21 @@ package task
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/intiramisu/note-cli/internal/config"
+	"github.com/intiramisu/note-cli/internal/util"
 	"github.com/mattn/go-runewidth"
 )
 
-// TUI styles (initialized from config)
-type tuiStyles struct {
-	appTitle       lipgloss.Style
-	selected       lipgloss.Style
-	done           lipgloss.Style
-	help           lipgloss.Style
-	empty          lipgloss.Style
-	priorityHigh   lipgloss.Style
-	priorityMedium lipgloss.Style
-	priorityLow    lipgloss.Style
-	doneSection    lipgloss.Style
-}
-
-var styles tuiStyles
+var styles util.Styles
 
 func initStyles() {
-	cfg := config.Global
-	colors := cfg.Theme.Colors
-
-	styles = tuiStyles{
-		appTitle:       lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(colors.Title)).MarginBottom(1),
-		selected:       lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Selected)).Bold(true),
-		done:           lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Done)).Strikethrough(true),
-		help:           lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Help)),
-		empty:          lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Empty)),
-		priorityHigh:   lipgloss.NewStyle().Foreground(lipgloss.Color(colors.PriorityHigh)).Bold(true),
-		priorityMedium: lipgloss.NewStyle().Foreground(lipgloss.Color(colors.PriorityMedium)).Bold(true),
-		priorityLow:    lipgloss.NewStyle().Foreground(lipgloss.Color(colors.PriorityLow)).Bold(true),
-		doneSection:    lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Done)).Bold(true),
-	}
+	styles = util.NewStyles(config.Global)
 }
-
-var priorityCycle = []Priority{PriorityHigh, PriorityMedium, PriorityLow}
 
 type mode int
 
@@ -68,6 +42,10 @@ type Model struct {
 	mode        mode
 	textInput   textinput.Model
 	addPriority Priority
+	settingDue  bool
+	dueInput    textinput.Model
+	addDue      time.Time
+	sortByDue   bool // true: 期限順, false: 優先度順
 	quitting    bool
 	width       int
 	height      int
@@ -82,9 +60,15 @@ func NewModel(manager *Manager) Model {
 	ti.CharLimit = cfg.Display.TaskCharLimit
 	ti.Width = cfg.Display.InputWidth
 
+	di := textinput.New()
+	di.Placeholder = "期限 (例: 01/20, 2026-01-20)"
+	di.CharLimit = 20
+	di.Width = 30
+
 	m := Model{
 		manager:     manager,
 		textInput:   ti,
+		dueInput:    di,
 		addPriority: PriorityMedium,
 		width:       120,
 		height:      24,
@@ -164,6 +148,11 @@ func (m Model) updateNormalMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.refreshTasks()
 			m.adjustCursor()
 		}
+
+	case "s":
+		m.sortByDue = !m.sortByDue
+		m.refreshTasks()
+		m.findFirstTask()
 	}
 
 	return m, nil
@@ -248,6 +237,40 @@ func (m *Model) adjustCursor() {
 }
 
 func (m Model) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// 期限入力モード
+	if m.settingDue {
+		switch msg.String() {
+		case "enter":
+			if m.dueInput.Value() != "" {
+				m.addDue = util.ParseDueDateSimple(m.dueInput.Value())
+			}
+			m.settingDue = false
+			value := strings.TrimSpace(m.textInput.Value())
+			if value != "" {
+				newTask := m.manager.AddWithDue(value, m.addPriority, m.addDue)
+				m.refreshTasks()
+				m.moveCursorToTask(newTask.ID)
+			}
+			m.textInput.Reset()
+			m.dueInput.Reset()
+			m.mode = modeNormal
+			m.addPriority = PriorityMedium
+			m.addDue = time.Time{}
+			return m, nil
+
+		case "esc":
+			m.settingDue = false
+			m.dueInput.Reset()
+			m.textInput.Focus()
+			return m, textinput.Blink
+		}
+
+		var cmd tea.Cmd
+		m.dueInput, cmd = m.dueInput.Update(msg)
+		return m, cmd
+	}
+
+	// タスク説明入力モード
 	switch msg.String() {
 	case "enter":
 		value := strings.TrimSpace(m.textInput.Value())
@@ -259,20 +282,31 @@ func (m Model) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.textInput.Reset()
 		m.mode = modeNormal
 		m.addPriority = PriorityMedium
+		m.addDue = time.Time{}
 		return m, nil
 
 	case "esc":
 		m.textInput.Reset()
 		m.mode = modeNormal
 		m.addPriority = PriorityMedium
+		m.addDue = time.Time{}
 		return m, nil
 
 	case "tab":
-		m.addPriority = cyclePriority(m.addPriority, false)
+		m.addPriority = CyclePriority(m.addPriority, false)
 		return m, nil
 
 	case "shift+tab":
-		m.addPriority = cyclePriority(m.addPriority, true)
+		m.addPriority = CyclePriority(m.addPriority, true)
+		return m, nil
+
+	case "ctrl+d":
+		if m.textInput.Value() != "" {
+			m.settingDue = true
+			m.textInput.Blur()
+			m.dueInput.Focus()
+			return m, textinput.Blink
+		}
 		return m, nil
 	}
 
@@ -281,35 +315,41 @@ func (m Model) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func cyclePriority(current Priority, reverse bool) Priority {
-	for i, p := range priorityCycle {
-		if p == current {
-			next := i + 1
-			if reverse {
-				next = i - 1 + len(priorityCycle)
-			}
-			return priorityCycle[next%len(priorityCycle)]
-		}
-	}
-	return priorityCycle[0]
-}
 
 func (m *Model) refreshTasks() {
-	allTasks := m.manager.List(true)
 	cfg := config.Global
 	colors := cfg.Theme.Colors
 	sections := cfg.Theme.Sections
 
-	m.sections = []sectionInfo{
-		{name: sections.P1, color: colors.PriorityHigh, priority: PriorityHigh, tasks: []*Task{}},
-		{name: sections.P2, color: colors.PriorityMedium, priority: PriorityMedium, tasks: []*Task{}},
-		{name: sections.P3, color: colors.PriorityLow, priority: PriorityLow, tasks: []*Task{}},
-		{name: sections.Done, color: colors.Done, isDone: true, tasks: []*Task{}},
-	}
+	if m.sortByDue {
+		// 期限順表示: 1セクションに全タスク
+		allTasks := m.manager.ListByDueDate(true)
+		var pending, done []*Task
+		for _, t := range allTasks {
+			if t.IsDone() {
+				done = append(done, t)
+			} else {
+				pending = append(pending, t)
+			}
+		}
+		m.sections = []sectionInfo{
+			{name: "📅 期限順", color: colors.Selected, tasks: pending},
+			{name: sections.Done, color: colors.Done, isDone: true, tasks: done},
+		}
+	} else {
+		// 優先度順表示: P1/P2/P3/Done
+		allTasks := m.manager.List(true)
+		m.sections = []sectionInfo{
+			{name: sections.P1, color: colors.PriorityHigh, priority: PriorityHigh, tasks: []*Task{}},
+			{name: sections.P2, color: colors.PriorityMedium, priority: PriorityMedium, tasks: []*Task{}},
+			{name: sections.P3, color: colors.PriorityLow, priority: PriorityLow, tasks: []*Task{}},
+			{name: sections.Done, color: colors.Done, isDone: true, tasks: []*Task{}},
+		}
 
-	for _, t := range allTasks {
-		idx := m.sectionIndexForTask(t)
-		m.sections[idx].tasks = append(m.sections[idx].tasks, t)
+		for _, t := range allTasks {
+			idx := m.sectionIndexForTask(t)
+			m.sections[idx].tasks = append(m.sections[idx].tasks, t)
+		}
 	}
 }
 
@@ -336,7 +376,7 @@ func (m Model) renderSection(sectionIndex int, section sectionInfo, colWidth, co
 	content.WriteString("\n")
 
 	if len(section.tasks) == 0 {
-		content.WriteString(styles.empty.Render("  (なし)\n"))
+		content.WriteString(styles.Empty.Render("  (なし)\n"))
 		return style.Render(content.String())
 	}
 
@@ -367,7 +407,7 @@ func (m Model) renderTaskLine(task *Task, colWidth int, isSelected bool) string 
 	prefixWidth := runewidth.StringWidth(prefix)
 	maxDescWidth := max(colWidth-prefixWidth-4, 5)
 
-	lines := wrapByWidth(task.Description, maxDescWidth)
+	lines := util.WrapByWidth(task.Description, maxDescWidth)
 	var result strings.Builder
 
 	for i, line := range lines {
@@ -391,102 +431,58 @@ func (m Model) renderTaskLine(task *Task, colWidth int, isSelected bool) string 
 		}
 		result.WriteString(strings.Repeat(" ", prefixWidth))
 		if task.IsOverdue() {
-			result.WriteString(styles.priorityHigh.Render(dueLabel))
+			result.WriteString(styles.PriorityHigh.Render(dueLabel))
 		} else if task.IsDueSoon(3) {
-			result.WriteString(styles.priorityMedium.Render(dueLabel))
+			result.WriteString(styles.PriorityMedium.Render(dueLabel))
 		} else {
-			result.WriteString(styles.help.Render(dueLabel))
+			result.WriteString(styles.Help.Render(dueLabel))
 		}
 	}
 
 	// 紐づきメモがある場合は表示
 	if task.HasNote() {
 		result.WriteString("\n")
-		noteLabel := symbols.NoteIcon + " " + truncateByWidth(task.NoteID, maxDescWidth-3)
+		noteLabel := symbols.NoteIcon + " " + util.TruncateString(task.NoteID, maxDescWidth-3)
 		result.WriteString(strings.Repeat(" ", prefixWidth))
-		result.WriteString(styles.help.Render(noteLabel))
+		result.WriteString(styles.Help.Render(noteLabel))
 	}
 
 	text := result.String()
 	if isSelected {
-		return styles.selected.Render(text)
+		return styles.Selected.Render(text)
 	}
 	if task.IsDone() {
-		return styles.done.Render(text)
+		return styles.Done.Render(text)
 	}
 	return text
 }
 
-func truncateByWidth(s string, maxWidth int) string {
-	if runewidth.StringWidth(s) <= maxWidth {
-		return s
-	}
-	var result strings.Builder
-	width := 0
-	for _, r := range s {
-		rw := runewidth.RuneWidth(r)
-		if width+rw > maxWidth-3 {
-			result.WriteString("...")
-			break
-		}
-		result.WriteRune(r)
-		width += rw
-	}
-	return result.String()
-}
-
-func wrapByWidth(s string, maxWidth int) []string {
-	if runewidth.StringWidth(s) <= maxWidth {
-		return []string{s}
-	}
-
-	var lines []string
-	var currentLine strings.Builder
-	currentWidth := 0
-
-	for _, r := range s {
-		rw := runewidth.RuneWidth(r)
-		if currentWidth+rw > maxWidth {
-			lines = append(lines, currentLine.String())
-			currentLine.Reset()
-			currentWidth = 0
-		}
-		currentLine.WriteRune(r)
-		currentWidth += rw
-	}
-
-	if currentLine.Len() > 0 {
-		lines = append(lines, currentLine.String())
-	}
-
-	return lines
-}
 
 func (m Model) sectionTitleStyle(section sectionInfo) lipgloss.Style {
 	if section.isDone {
-		return styles.doneSection
+		return styles.DoneSection
 	}
 	switch section.priority {
 	case PriorityHigh:
-		return styles.priorityHigh
+		return styles.PriorityHigh
 	case PriorityMedium:
-		return styles.priorityMedium
+		return styles.PriorityMedium
 	case PriorityLow:
-		return styles.priorityLow
+		return styles.PriorityLow
 	}
-	return styles.priorityMedium
+	return styles.PriorityMedium
 }
 
 func (m Model) priorityStyle(p Priority) lipgloss.Style {
 	switch p {
 	case PriorityHigh:
-		return styles.priorityHigh
+		return styles.PriorityHigh
 	case PriorityMedium:
-		return styles.priorityMedium
+		return styles.PriorityMedium
 	case PriorityLow:
-		return styles.priorityLow
+		return styles.PriorityLow
 	}
-	return styles.priorityMedium
+	return styles.PriorityMedium
 }
 
 func newSectionStyle(color string, width, height int) lipgloss.Style {
@@ -507,7 +503,7 @@ func (m Model) View() string {
 	symbols := cfg.Theme.Symbols
 
 	var s strings.Builder
-	s.WriteString(styles.appTitle.Render(symbols.TaskIcon + " タスク管理"))
+	s.WriteString(styles.Title.Render(symbols.TaskIcon + " タスク管理"))
 	s.WriteString("\n\n")
 
 	colWidth, colHeight := m.calculateDimensions()
@@ -519,7 +515,7 @@ func (m Model) View() string {
 	}
 
 	s.WriteString("\n")
-	s.WriteString(styles.help.Render(m.helpText()))
+	s.WriteString(styles.Help.Render(m.helpText()))
 	return s.String()
 }
 
@@ -541,14 +537,24 @@ func (m Model) renderAllSections(colWidth, colHeight int) string {
 func (m Model) renderAddInput() string {
 	style := m.priorityStyle(m.addPriority)
 	label := style.Render("[" + m.addPriority.String() + "]")
+	if m.settingDue {
+		return fmt.Sprintf("\n新規タスク %s: %s\n期限: %s", label, m.textInput.Value(), m.dueInput.View())
+	}
 	return fmt.Sprintf("\n新規タスク %s: %s", label, m.textInput.View())
 }
 
 func (m Model) helpText() string {
 	if m.mode == modeAdd {
-		return "Enter:確定 Tab:優先度変更 Esc:キャンセル"
+		if m.settingDue {
+			return "Enter:確定 Esc:戻る"
+		}
+		return "Enter:確定 Tab:優先度変更 Ctrl+D:期限設定 Esc:キャンセル"
 	}
-	return "i:追加 d:削除 Enter/Space:完了切替 h/l:左右 j/k:上下 q:終了"
+	sortLabel := "s:期限順"
+	if m.sortByDue {
+		sortLabel = "s:優先度順"
+	}
+	return fmt.Sprintf("i:追加 d:削除 Enter/Space:完了切替 %s h/l:左右 j/k:上下 q:終了", sortLabel)
 }
 
 func Run(manager *Manager) error {

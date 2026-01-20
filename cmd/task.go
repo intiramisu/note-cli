@@ -4,50 +4,12 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/intiramisu/note-cli/internal/config"
 	"github.com/intiramisu/note-cli/internal/task"
+	"github.com/intiramisu/note-cli/internal/util"
 	"github.com/spf13/cobra"
 )
-
-// parseDueDate parses flexible date formats
-func parseDueDate(s string) (time.Time, error) {
-	if s == "" {
-		return time.Time{}, nil
-	}
-
-	s = strings.ToLower(strings.TrimSpace(s))
-	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
-
-	switch s {
-	case "today":
-		return today, nil
-	case "tomorrow", "tom":
-		return today.AddDate(0, 0, 1), nil
-	}
-
-	// +N days format
-	if strings.HasPrefix(s, "+") {
-		days, err := strconv.Atoi(s[1:])
-		if err == nil {
-			return today.AddDate(0, 0, days), nil
-		}
-	}
-
-	// ISO format: 2026-01-20
-	if t, err := time.ParseInLocation("2006-01-02", s, now.Location()); err == nil {
-		return time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 0, now.Location()), nil
-	}
-
-	// Short format: 01-20 (current year)
-	if t, err := time.ParseInLocation("01-02", s, now.Location()); err == nil {
-		return time.Date(now.Year(), t.Month(), t.Day(), 23, 59, 59, 0, now.Location()), nil
-	}
-
-	return time.Time{}, fmt.Errorf("invalid date format: %s", s)
-}
 
 var taskCmd = &cobra.Command{
 	Use:     "task",
@@ -82,7 +44,7 @@ var taskAddCmd = &cobra.Command{
 			priority = task.PriorityLow
 		}
 
-		dueDate, err := parseDueDate(dueStr)
+		dueDate, err := util.ParseDueDate(dueStr)
 		if err != nil {
 			return err
 		}

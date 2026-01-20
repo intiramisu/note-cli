@@ -3,7 +3,9 @@ package ui
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -11,33 +13,14 @@ import (
 	"github.com/intiramisu/note-cli/internal/config"
 	"github.com/intiramisu/note-cli/internal/note"
 	"github.com/intiramisu/note-cli/internal/task"
+	"github.com/intiramisu/note-cli/internal/util"
 	"github.com/mattn/go-runewidth"
 )
 
-// UI styles (initialized from config)
-type uiStyles struct {
-	title    lipgloss.Style
-	selected lipgloss.Style
-	normal   lipgloss.Style
-	done     lipgloss.Style
-	meta     lipgloss.Style
-	help     lipgloss.Style
-}
-
-var styles uiStyles
+var styles util.Styles
 
 func initStyles() {
-	cfg := config.Global
-	colors := cfg.Theme.Colors
-
-	styles = uiStyles{
-		title:    lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(colors.Title)).MarginBottom(1),
-		selected: lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Selected)).Bold(true),
-		normal:   lipgloss.NewStyle().Foreground(lipgloss.Color("#fcfcfc")),
-		done:     lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Done)).Strikethrough(true),
-		meta:     lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Help)),
-		help:     lipgloss.NewStyle().Foreground(lipgloss.Color(colors.Help)).MarginTop(1),
-	}
+	styles = util.NewStyles(config.Global)
 }
 
 type viewMode int
@@ -66,6 +49,14 @@ type model struct {
 	taskInput    textinput.Model
 	taskPriority task.Priority
 
+	// 期限入力用
+	settingDue bool
+	dueInput   textinput.Model
+	taskDue    time.Time
+
+	// ソート順
+	sortByDue bool // true: 期限順, false: 優先度順
+
 	// タスク紐づけ用
 	unlinkedTasks    []*task.Task
 	selectedUnlinked int
@@ -81,12 +72,19 @@ func NewModel(noteStorage *note.Storage, taskManager *task.Manager) model {
 	ti.Width = cfg.Display.InputWidth
 	ti.SetValue("")
 
+	di := textinput.New()
+	di.Placeholder = "期限 (例: 01/20, 2026-01-20)"
+	di.CharLimit = 20
+	di.Width = 30
+	di.SetValue("")
+
 	return model{
 		noteStorage:  noteStorage,
 		taskManager:  taskManager,
 		mode:         modeNotesList,
 		taskInput:    ti,
 		taskPriority: task.PriorityMedium,
+		dueInput:     di,
 	}
 }
 
@@ -199,12 +197,46 @@ func (m model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.selectedUnlinked = 0
 			}
 		}
+
+	case "s":
+		if m.mode == modeNoteDetail {
+			m.sortByDue = !m.sortByDue
+			m.loadRelatedTasks()
+		}
 	}
 
 	return m, nil
 }
 
 func (m model) handleTaskInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// 期限入力モード
+	if m.settingDue {
+		switch msg.String() {
+		case "enter":
+			if m.dueInput.Value() != "" {
+				m.taskDue = util.ParseDueDateSimple(m.dueInput.Value())
+			}
+			m.settingDue = false
+			m.addTask()
+			m.addingTask = false
+			m.taskInput.Reset()
+			m.dueInput.Reset()
+			m.taskDue = time.Time{}
+			return m, nil
+
+		case "esc":
+			m.settingDue = false
+			m.dueInput.Reset()
+			m.taskInput.Focus()
+			return m, textinput.Blink
+		}
+
+		var cmd tea.Cmd
+		m.dueInput, cmd = m.dueInput.Update(msg)
+		return m, cmd
+	}
+
+	// タスク説明入力モード
 	switch msg.String() {
 	case "enter":
 		if m.taskInput.Value() != "" {
@@ -212,38 +244,36 @@ func (m model) handleTaskInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.addingTask = false
 		m.taskInput.Reset()
+		m.taskDue = time.Time{}
 		return m, nil
 
 	case "esc":
 		m.addingTask = false
 		m.taskInput.Reset()
+		m.taskDue = time.Time{}
 		return m, nil
 
 	case "tab":
-		m.taskPriority = cyclePriority(m.taskPriority, false)
+		m.taskPriority = task.CyclePriority(m.taskPriority, false)
 		return m, nil
 
 	case "shift+tab":
-		m.taskPriority = cyclePriority(m.taskPriority, true)
+		m.taskPriority = task.CyclePriority(m.taskPriority, true)
+		return m, nil
+
+	case "ctrl+d":
+		if m.taskInput.Value() != "" {
+			m.settingDue = true
+			m.taskInput.Blur()
+			m.dueInput.Focus()
+			return m, textinput.Blink
+		}
 		return m, nil
 	}
 
 	var cmd tea.Cmd
 	m.taskInput, cmd = m.taskInput.Update(msg)
 	return m, cmd
-}
-
-func cyclePriority(p task.Priority, reverse bool) task.Priority {
-	order := []task.Priority{task.PriorityHigh, task.PriorityMedium, task.PriorityLow}
-	for i, pr := range order {
-		if pr == p {
-			if reverse {
-				return order[(i-1+len(order))%len(order)]
-			}
-			return order[(i+1)%len(order)]
-		}
-	}
-	return task.PriorityMedium
 }
 
 func (m *model) moveDown() {
@@ -274,6 +304,23 @@ func (m *model) loadRelatedTasks() {
 	if m.selectedNote >= 0 && m.selectedNote < len(m.notes) {
 		noteID := m.notes[m.selectedNote].ID
 		m.tasks = m.taskManager.ListByNote(noteID)
+
+		if m.sortByDue {
+			// 期限順でソート
+			sort.Slice(m.tasks, func(i, j int) bool {
+				// 期限なしは後ろに
+				if !m.tasks[i].HasDueDate() && !m.tasks[j].HasDueDate() {
+					return m.tasks[i].Priority > m.tasks[j].Priority
+				}
+				if !m.tasks[i].HasDueDate() {
+					return false
+				}
+				if !m.tasks[j].HasDueDate() {
+					return true
+				}
+				return m.tasks[i].DueDate.Before(m.tasks[j].DueDate)
+			})
+		}
 	}
 }
 
@@ -310,10 +357,11 @@ func (m *model) unlinkTask() {
 func (m *model) addTask() {
 	if m.selectedNote >= 0 && m.selectedNote < len(m.notes) {
 		noteID := m.notes[m.selectedNote].ID
-		m.taskManager.AddWithNote(m.taskInput.Value(), m.taskPriority, noteID)
+		m.taskManager.AddFull(m.taskInput.Value(), m.taskPriority, noteID, m.taskDue)
 		m.loadRelatedTasks()
 	}
 }
+
 
 func (m *model) loadUnlinkedTasks() {
 	allTasks := m.taskManager.List(false)
@@ -375,7 +423,7 @@ func (m model) renderNotesList() string {
 	formats := cfg.Formats
 
 	var b strings.Builder
-	b.WriteString(styles.title.Render(symbols.NoteIcon + " Notes"))
+	b.WriteString(styles.Title.Render(symbols.NoteIcon + " Notes"))
 	b.WriteString("\n\n")
 
 	if len(m.notes) == 0 {
@@ -398,10 +446,10 @@ func (m model) renderNotesList() string {
 		for i := start; i < end; i++ {
 			n := m.notes[i]
 			prefix := symbols.CursorEmpty
-			style := styles.normal
+			style := styles.Normal
 			if i == m.selectedNote {
 				prefix = symbols.Cursor
-				style = styles.selected
+				style = styles.Selected
 			}
 
 			date := n.Modified.Format(formats.Date)
@@ -418,7 +466,7 @@ func (m model) renderNotesList() string {
 			if dir != "." {
 				titleDisplay = dir + "/" + n.Title
 			}
-			title := truncateString(titleDisplay, titleMaxWidth)
+			title := util.TruncateString(titleDisplay, titleMaxWidth)
 			// パディングを計算して右揃えの日付表示
 			titleWidth := runewidth.StringWidth(title)
 			padding := titleMaxWidth - titleWidth
@@ -431,7 +479,7 @@ func (m model) renderNotesList() string {
 		}
 	}
 
-	b.WriteString(styles.help.Render("j/k: 移動 | Enter: 詳細 | q: 終了"))
+	b.WriteString(styles.Help.Render("j/k: 移動 | Enter: 詳細 | q: 終了"))
 
 	return b.String()
 }
@@ -450,15 +498,15 @@ func (m model) renderNoteDetail() string {
 	var b strings.Builder
 
 	// メモヘッダー
-	b.WriteString(styles.title.Render(symbols.NoteIcon + " " + n.Title))
+	b.WriteString(styles.Title.Render(symbols.NoteIcon + " " + n.Title))
 	b.WriteString("\n")
-	b.WriteString(styles.meta.Render(fmt.Sprintf("作成: %s | 更新: %s",
+	b.WriteString(styles.Meta.Render(fmt.Sprintf("作成: %s | 更新: %s",
 		n.Created.Format(formats.DateTime),
 		n.Modified.Format(formats.DateTime))))
 	b.WriteString("\n")
 
 	if len(n.Tags) > 0 {
-		b.WriteString(styles.meta.Render("タグ: " + strings.Join(n.Tags, ", ")))
+		b.WriteString(styles.Meta.Render("タグ: " + strings.Join(n.Tags, ", ")))
 		b.WriteString("\n")
 	}
 
@@ -477,11 +525,11 @@ func (m model) renderNoteDetail() string {
 	}
 	for i, line := range contentLines {
 		if i >= maxContentLines {
-			b.WriteString(styles.meta.Render("..."))
+			b.WriteString(styles.Meta.Render("..."))
 			b.WriteString("\n")
 			break
 		}
-		b.WriteString(truncateString(line, m.width-4))
+		b.WriteString(util.TruncateString(line, m.width-4))
 		b.WriteString("\n")
 	}
 
@@ -493,13 +541,22 @@ func (m model) renderNoteDetail() string {
 
 	if m.addingTask {
 		priorityLabel := m.taskPriority.String()
-		b.WriteString(fmt.Sprintf("  [%s] %s\n", priorityLabel, m.taskInput.View()))
-		b.WriteString(styles.meta.Render("  Tab: 優先度変更 | Enter: 確定 | Esc: キャンセル"))
-		b.WriteString("\n")
+		if m.settingDue {
+			// 期限入力モード
+			b.WriteString(fmt.Sprintf("  [%s] %s\n", priorityLabel, m.taskInput.Value()))
+			b.WriteString(fmt.Sprintf("  期限: %s\n", m.dueInput.View()))
+			b.WriteString(styles.Meta.Render("  Enter: 確定 | Esc: 戻る"))
+			b.WriteString("\n")
+		} else {
+			// タスク説明入力モード
+			b.WriteString(fmt.Sprintf("  [%s] %s\n", priorityLabel, m.taskInput.View()))
+			b.WriteString(styles.Meta.Render("  Tab: 優先度変更 | Ctrl+D: 期限設定 | Enter: 確定 | Esc: キャンセル"))
+			b.WriteString("\n")
+		}
 	}
 
 	if len(m.tasks) == 0 && !m.addingTask {
-		b.WriteString(styles.meta.Render("  タスクなし"))
+		b.WriteString(styles.Meta.Render("  タスクなし"))
 		b.WriteString("\n")
 	} else {
 		maxTaskLines := m.height - 15 - maxContentLines
@@ -509,22 +566,22 @@ func (m model) renderNoteDetail() string {
 
 		for i, t := range m.tasks {
 			if i >= maxTaskLines {
-				b.WriteString(styles.meta.Render(fmt.Sprintf("  ... 他 %d 件", len(m.tasks)-i)))
+				b.WriteString(styles.Meta.Render(fmt.Sprintf("  ... 他 %d 件", len(m.tasks)-i)))
 				b.WriteString("\n")
 				break
 			}
 
 			prefix := symbols.CursorEmpty
-			style := styles.normal
+			style := styles.Normal
 			if i == m.selectedTask && !m.addingTask {
 				prefix = symbols.Cursor
-				style = styles.selected
+				style = styles.Selected
 			}
 
 			checkbox := symbols.CheckboxEmpty
 			if t.IsDone() {
 				checkbox = symbols.CheckboxDone
-				style = styles.done
+				style = styles.Done
 			}
 
 			priority := t.Priority.String()
@@ -536,7 +593,7 @@ func (m model) renderNoteDetail() string {
 					dueStr = " 📅" + t.DueDate.Format("01/02")
 				}
 			}
-			desc := truncateString(t.Description, m.width-25-len(dueStr))
+			desc := util.TruncateString(t.Description, m.width-25-len(dueStr))
 			line := fmt.Sprintf("%s%s (%s) %s%s", prefix, checkbox, priority, desc, dueStr)
 			b.WriteString(style.Render(line))
 			b.WriteString("\n")
@@ -544,7 +601,11 @@ func (m model) renderNoteDetail() string {
 	}
 
 	if !m.addingTask {
-		b.WriteString(styles.help.Render("j/k: 移動 | Enter/Space: 完了切替 | i: 追加 | a: 紐づけ | d: 削除 | o: 解除 | Tab/Esc: 戻る"))
+		sortLabel := "s: 期限順"
+		if m.sortByDue {
+			sortLabel = "s: 優先度順"
+		}
+		b.WriteString(styles.Help.Render(fmt.Sprintf("j/k: 移動 | Enter/Space: 完了切替 | i: 追加 | a: 紐づけ | d: 削除 | o: 解除 | %s | Tab/Esc: 戻る", sortLabel)))
 	}
 
 	return b.String()
@@ -558,14 +619,14 @@ func (m model) renderAttachTask() string {
 
 	// タイトル
 	n := m.notes[m.selectedNote]
-	b.WriteString(styles.title.Render(symbols.NoteIcon + " " + n.Title + " - タスクを紐づけ"))
+	b.WriteString(styles.Title.Render(symbols.NoteIcon + " " + n.Title + " - タスクを紐づけ"))
 	b.WriteString("\n\n")
 
 	if len(m.unlinkedTasks) == 0 {
-		b.WriteString(styles.meta.Render("紐づけ可能なタスクがありません"))
+		b.WriteString(styles.Meta.Render("紐づけ可能なタスクがありません"))
 		b.WriteString("\n")
 	} else {
-		b.WriteString(styles.meta.Render("紐づけるタスクを選択:"))
+		b.WriteString(styles.Meta.Render("紐づけるタスクを選択:"))
 		b.WriteString("\n\n")
 
 		maxItems := m.height - 8
@@ -585,10 +646,10 @@ func (m model) renderAttachTask() string {
 		for i := start; i < end; i++ {
 			t := m.unlinkedTasks[i]
 			prefix := symbols.CursorEmpty
-			style := styles.normal
+			style := styles.Normal
 			if i == m.selectedUnlinked {
 				prefix = symbols.Cursor
-				style = styles.selected
+				style = styles.Selected
 			}
 
 			priority := ""
@@ -599,7 +660,7 @@ func (m model) renderAttachTask() string {
 			if t.HasDueDate() {
 				dueStr = fmt.Sprintf(" 📅%s", t.DueDate.Format("01/02"))
 			}
-			desc := truncateString(t.Description, m.width-20)
+			desc := util.TruncateString(t.Description, m.width-20)
 			line := fmt.Sprintf("%s%s%s%s", prefix, priority, desc, dueStr)
 			b.WriteString(style.Render(line))
 			b.WriteString("\n")
@@ -607,28 +668,11 @@ func (m model) renderAttachTask() string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(styles.help.Render("j/k: 移動 | Enter: 紐づけ | Esc: キャンセル"))
+	b.WriteString(styles.Help.Render("j/k: 移動 | Enter: 紐づけ | Esc: キャンセル"))
 
 	return b.String()
 }
 
-func truncateString(s string, maxWidth int) string {
-	if runewidth.StringWidth(s) <= maxWidth {
-		return s
-	}
-	var result strings.Builder
-	width := 0
-	for _, r := range s {
-		rw := runewidth.RuneWidth(r)
-		if width+rw > maxWidth-3 {
-			result.WriteString("...")
-			break
-		}
-		result.WriteRune(r)
-		width += rw
-	}
-	return result.String()
-}
 
 func Run(noteStorage *note.Storage, taskManager *task.Manager) error {
 	p := tea.NewProgram(NewModel(noteStorage, taskManager), tea.WithAltScreen())

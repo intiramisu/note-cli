@@ -13,6 +13,9 @@ const (
 	PriorityHigh
 )
 
+// PriorityCycle is the order of priority cycling in TUI.
+var PriorityCycle = []Priority{PriorityHigh, PriorityMedium, PriorityLow}
+
 func (p Priority) String() string {
 	switch p {
 	case PriorityLow:
@@ -24,6 +27,20 @@ func (p Priority) String() string {
 	default:
 		return ""
 	}
+}
+
+// CyclePriority cycles through priorities in order or reverse.
+func CyclePriority(current Priority, reverse bool) Priority {
+	for i, p := range PriorityCycle {
+		if p == current {
+			next := i + 1
+			if reverse {
+				next = i - 1 + len(PriorityCycle)
+			}
+			return PriorityCycle[next%len(PriorityCycle)]
+		}
+	}
+	return PriorityCycle[0]
 }
 
 type Status int
