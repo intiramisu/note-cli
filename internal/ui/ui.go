@@ -66,13 +66,11 @@ func NewModel(noteStorage *note.Storage, taskManager *task.Manager) model {
 	cfg := config.Global
 
 	ti := textinput.New()
-	ti.Placeholder = "タスクを入力..."
 	ti.CharLimit = cfg.Display.TaskCharLimit
 	ti.Width = cfg.Display.InputWidth
 	ti.SetValue("")
 
 	di := textinput.New()
-	di.Placeholder = "期限 (例: 01/20, 2026-01-20)"
 	di.CharLimit = 20
 	di.Width = 30
 	di.SetValue("")
@@ -129,6 +127,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case errMsg:
 		return m, tea.Quit
+	}
+
+	// Forward other messages (cursor blink etc.) to active text input
+	if m.addingTask {
+		var cmd tea.Cmd
+		if m.settingDue {
+			m.dueInput, cmd = m.dueInput.Update(msg)
+		} else {
+			m.taskInput, cmd = m.taskInput.Update(msg)
+		}
+		return m, cmd
 	}
 
 	return m, nil

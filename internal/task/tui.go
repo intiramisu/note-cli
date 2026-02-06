@@ -56,12 +56,10 @@ func NewModel(manager *Manager) Model {
 	cfg := config.Global
 
 	ti := textinput.New()
-	ti.Placeholder = "タスクの説明を入力 (Tabで優先度変更)..."
 	ti.CharLimit = cfg.Display.TaskCharLimit
 	ti.Width = cfg.Display.InputWidth
 
 	di := textinput.New()
-	di.Placeholder = "期限 (例: 01/20, 2026-01-20)"
 	di.CharLimit = 20
 	di.Width = 30
 
@@ -107,6 +105,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.updateNormalMode(msg)
 	}
+
+	// Forward other messages (cursor blink etc.) to active text input
+	if m.mode == modeAdd {
+		var cmd tea.Cmd
+		if m.settingDue {
+			m.dueInput, cmd = m.dueInput.Update(msg)
+		} else {
+			m.textInput, cmd = m.textInput.Update(msg)
+		}
+		return m, cmd
+	}
+
 	return m, nil
 }
 
