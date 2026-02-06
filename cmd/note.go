@@ -85,7 +85,7 @@ var noteListCmd = &cobra.Command{
 		tagFilter, _ := cmd.Flags().GetString("tag")
 		cfg := config.Global
 
-		storage, err := note.NewStorage(cfg.NotesDir)
+		storage, err := newStorage()
 		if err != nil {
 			return err
 		}
@@ -126,7 +126,7 @@ var noteShowCmd = &cobra.Command{
 		query := strings.Join(args, " ")
 		cfg := config.Global
 
-		storage, err := note.NewStorage(cfg.NotesDir)
+		storage, err := newStorage()
 		if err != nil {
 			return err
 		}
@@ -179,7 +179,7 @@ var noteEditCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.Join(args, " ")
 
-		storage, err := note.NewStorage(config.Global.NotesDir)
+		storage, err := newStorage()
 		if err != nil {
 			return err
 		}
@@ -200,7 +200,7 @@ var noteDeleteCmd = &cobra.Command{
 		query := strings.Join(args, " ")
 		force, _ := cmd.Flags().GetBool("force")
 
-		storage, err := note.NewStorage(config.Global.NotesDir)
+		storage, err := newStorage()
 		if err != nil {
 			return err
 		}

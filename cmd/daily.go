@@ -9,6 +9,7 @@ import (
 
 	"github.com/intiramisu/note-cli/internal/config"
 	"github.com/intiramisu/note-cli/internal/note"
+	"github.com/intiramisu/note-cli/internal/util"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +22,7 @@ var dailyCmd = &cobra.Command{
 		cfg := config.Global
 		date := time.Now()
 		if len(args) > 0 {
-			parsed, err := parseDate(args[0], cfg.Formats.Date)
+			parsed, err := util.ParseDate(args[0], cfg.Formats.Date)
 			if err != nil {
 				return err
 			}
@@ -29,7 +30,7 @@ var dailyCmd = &cobra.Command{
 		}
 
 		notesDir := cfg.NotesDir
-		storage, err := note.NewStorage(notesDir)
+		storage, err := newStorage()
 		if err != nil {
 			return err
 		}
@@ -74,33 +75,6 @@ var dailyCmd = &cobra.Command{
 	},
 }
 
-func parseDate(input string, dateFormat string) (time.Time, error) {
-	now := time.Now()
-
-	switch strings.ToLower(input) {
-	case "today":
-		return now, nil
-	case "yesterday":
-		return now.AddDate(0, 0, -1), nil
-	case "tomorrow":
-		return now.AddDate(0, 0, 1), nil
-	}
-
-	// +N / -N 形式
-	if len(input) > 0 && (input[0] == '+' || input[0] == '-') {
-		var days int
-		if _, err := fmt.Sscanf(input, "%d", &days); err == nil {
-			return now.AddDate(0, 0, days), nil
-		}
-	}
-
-	// 日付形式 (設定から取得)
-	parsed, err := time.Parse(dateFormat, input)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("無効な日付形式: %s (%s, yesterday, tomorrow, +N, -N が使えます)", input, dateFormat)
-	}
-	return parsed, nil
-}
 
 func loadDailyTemplate(notesDir string, date time.Time, cfg *config.Config) (string, error) {
 	templatePath := filepath.Join(notesDir, cfg.Paths.TemplatesDir, "daily.md")

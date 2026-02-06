@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -306,20 +305,7 @@ func (m *model) loadRelatedTasks() {
 		m.tasks = m.taskManager.ListByNote(noteID)
 
 		if m.sortByDue {
-			// 期限順でソート
-			sort.Slice(m.tasks, func(i, j int) bool {
-				// 期限なしは後ろに
-				if !m.tasks[i].HasDueDate() && !m.tasks[j].HasDueDate() {
-					return m.tasks[i].Priority > m.tasks[j].Priority
-				}
-				if !m.tasks[i].HasDueDate() {
-					return false
-				}
-				if !m.tasks[j].HasDueDate() {
-					return true
-				}
-				return m.tasks[i].DueDate.Before(m.tasks[j].DueDate)
-			})
+			m.taskManager.SortByDueDate(m.tasks)
 		}
 	}
 }
@@ -357,7 +343,7 @@ func (m *model) unlinkTask() {
 func (m *model) addTask() {
 	if m.selectedNote >= 0 && m.selectedNote < len(m.notes) {
 		noteID := m.notes[m.selectedNote].ID
-		m.taskManager.AddFull(m.taskInput.Value(), m.taskPriority, noteID, m.taskDue)
+		m.taskManager.Add(m.taskInput.Value(), m.taskPriority, noteID, m.taskDue)
 		m.loadRelatedTasks()
 	}
 }

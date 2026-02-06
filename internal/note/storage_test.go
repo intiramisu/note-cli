@@ -223,3 +223,97 @@ func TestGenerateFilename(t *testing.T) {
 		storage.Delete(note.ID)
 	}
 }
+
+func TestParseNoteNoFrontmatter(t *testing.T) {
+	storage, tmpDir := setupTestStorage(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Write a file without frontmatter
+	content := "Just some text without frontmatter"
+	filename := "no-frontmatter.md"
+	fullPath := filepath.Join(tmpDir, filename)
+	if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	_, err := storage.Load(filename)
+	if err == nil {
+		t.Error("Load() should return error for file without frontmatter")
+	}
+	if !strings.Contains(err.Error(), "frontmatter") {
+		t.Errorf("Error should mention frontmatter, got: %v", err)
+	}
+}
+
+func TestParseNoteNoClosingFrontmatter(t *testing.T) {
+	storage, tmpDir := setupTestStorage(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Write a file with unclosed frontmatter
+	content := "---\ntitle: test\n"
+	filename := "unclosed.md"
+	fullPath := filepath.Join(tmpDir, filename)
+	if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	_, err := storage.Load(filename)
+	if err == nil {
+		t.Error("Load() should return error for unclosed frontmatter")
+	}
+	if !strings.Contains(err.Error(), "終端") {
+		t.Errorf("Error should mention missing end marker, got: %v", err)
+	}
+}
+
+func TestParseNoteInvalidYAML(t *testing.T) {
+	storage, tmpDir := setupTestStorage(t)
+	defer os.RemoveAll(tmpDir)
+
+	// Write a file with invalid YAML in frontmatter
+	content := "---\ntitle: [invalid yaml\n---\ncontent"
+	filename := "invalid-yaml.md"
+	fullPath := filepath.Join(tmpDir, filename)
+	if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	_, err := storage.Load(filename)
+	if err == nil {
+		t.Error("Load() should return error for invalid YAML")
+	}
+}
+
+func TestStorageSaveAt(t *testing.T) {
+	storage, tmpDir := setupTestStorage(t)
+	defer os.RemoveAll(tmpDir)
+
+	n := NewNote("SaveAtテスト", []string{"test"})
+	n.Content = "テスト内容"
+
+	customPath := filepath.Join(tmpDir, "subdir", "custom.md")
+	os.MkdirAll(filepath.Dir(customPath), 0755)
+
+	if err := storage.SaveAt(n, customPath); err != nil {
+		t.Fatalf("SaveAt() error = %v", err)
+	}
+
+	// Verify file was created at custom path
+	if _, err := os.Stat(customPath); os.IsNotExist(err) {
+		t.Error("SaveAt() should create file at specified path")
+	}
+
+	// Verify content
+	data, err := os.ReadFile(customPath)
+	if err != nil {
+		t.Fatalf("Failed to read file: %v", err)
+	}
+
+	content := string(data)
+	if !strings.Contains(content, "SaveAtテスト") {
+		t.Error("Saved file should contain the title")
+	}
+	if !strings.Contains(content, "テスト内容") {
+		t.Error("Saved file should contain the content")
+	}
+}

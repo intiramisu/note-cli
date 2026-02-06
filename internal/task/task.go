@@ -43,6 +43,20 @@ func CyclePriority(current Priority, reverse bool) Priority {
 	return PriorityCycle[0]
 }
 
+// ParsePriority parses a string into a Priority value.
+func ParsePriority(s string) Priority {
+	switch s {
+	case "1", "high":
+		return PriorityHigh
+	case "2", "medium":
+		return PriorityMedium
+	case "3", "low":
+		return PriorityLow
+	default:
+		return PriorityNone
+	}
+}
+
 type Status int
 
 const (

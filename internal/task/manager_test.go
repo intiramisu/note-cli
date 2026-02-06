@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func setupTestManager(t *testing.T) (*Manager, string) {
@@ -48,7 +49,7 @@ func TestManagerAdd(t *testing.T) {
 	manager, tmpDir := setupTestManager(t)
 	defer os.RemoveAll(tmpDir)
 
-	task := manager.Add("テストタスク", PriorityHigh)
+	task := manager.Add("テストタスク", PriorityHigh, "", time.Time{})
 
 	if task == nil {
 		t.Fatal("Add() returned nil")
@@ -67,7 +68,7 @@ func TestManagerAdd(t *testing.T) {
 	}
 
 	// Add second task
-	task2 := manager.Add("タスク2", PriorityLow)
+	task2 := manager.Add("タスク2", PriorityLow, "", time.Time{})
 	if task2.ID != 2 {
 		t.Errorf("Second task ID = %d, want 2", task2.ID)
 	}
@@ -78,14 +79,48 @@ func TestManagerAddWithNote(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	noteID := "会議メモ"
-	task := manager.AddWithNote("議事録まとめ", PriorityMedium, noteID)
+	task := manager.Add("議事録まとめ", PriorityMedium, noteID, time.Time{})
 
 	if task.NoteID != noteID {
 		t.Errorf("NoteID = %q, want %q", task.NoteID, noteID)
 	}
 
 	if !task.HasNote() {
-		t.Error("Task should have note after AddWithNote()")
+		t.Error("Task should have note after Add() with noteID")
+	}
+}
+
+func TestManagerAddWithDue(t *testing.T) {
+	manager, tmpDir := setupTestManager(t)
+	defer os.RemoveAll(tmpDir)
+
+	due := time.Date(2026, 3, 1, 23, 59, 59, 0, time.Local)
+	task := manager.Add("期限付きタスク", PriorityHigh, "", due)
+
+	if !task.HasDueDate() {
+		t.Error("Task should have due date after Add() with dueDate")
+	}
+
+	if !task.DueDate.Equal(due) {
+		t.Errorf("DueDate = %v, want %v", task.DueDate, due)
+	}
+}
+
+func TestManagerAddFull(t *testing.T) {
+	manager, tmpDir := setupTestManager(t)
+	defer os.RemoveAll(tmpDir)
+
+	due := time.Date(2026, 3, 1, 23, 59, 59, 0, time.Local)
+	task := manager.Add("フルタスク", PriorityMedium, "メモA", due)
+
+	if !task.HasNote() {
+		t.Error("Task should have note")
+	}
+	if task.NoteID != "メモA" {
+		t.Errorf("NoteID = %q, want %q", task.NoteID, "メモA")
+	}
+	if !task.HasDueDate() {
+		t.Error("Task should have due date")
 	}
 }
 
@@ -93,9 +128,9 @@ func TestManagerList(t *testing.T) {
 	manager, tmpDir := setupTestManager(t)
 	defer os.RemoveAll(tmpDir)
 
-	manager.Add("タスク1", PriorityLow)
-	manager.Add("タスク2", PriorityHigh)
-	task3 := manager.Add("タスク3", PriorityMedium)
+	manager.Add("タスク1", PriorityLow, "", time.Time{})
+	manager.Add("タスク2", PriorityHigh, "", time.Time{})
+	task3 := manager.Add("タスク3", PriorityMedium, "", time.Time{})
 	task3.Done()
 	manager.save()
 
@@ -121,10 +156,10 @@ func TestManagerListByNote(t *testing.T) {
 	manager, tmpDir := setupTestManager(t)
 	defer os.RemoveAll(tmpDir)
 
-	manager.AddWithNote("タスク1", PriorityHigh, "メモA")
-	manager.AddWithNote("タスク2", PriorityMedium, "メモA")
-	manager.AddWithNote("タスク3", PriorityLow, "メモB")
-	manager.Add("タスク4", PriorityHigh)
+	manager.Add("タスク1", PriorityHigh, "メモA", time.Time{})
+	manager.Add("タスク2", PriorityMedium, "メモA", time.Time{})
+	manager.Add("タスク3", PriorityLow, "メモB", time.Time{})
+	manager.Add("タスク4", PriorityHigh, "", time.Time{})
 
 	listA := manager.ListByNote("メモA")
 	if len(listA) != 2 {
@@ -146,7 +181,7 @@ func TestManagerGet(t *testing.T) {
 	manager, tmpDir := setupTestManager(t)
 	defer os.RemoveAll(tmpDir)
 
-	task := manager.Add("テスト", PriorityMedium)
+	task := manager.Add("テスト", PriorityMedium, "", time.Time{})
 
 	got, err := manager.Get(task.ID)
 	if err != nil {
@@ -167,7 +202,7 @@ func TestManagerDone(t *testing.T) {
 	manager, tmpDir := setupTestManager(t)
 	defer os.RemoveAll(tmpDir)
 
-	task := manager.Add("テスト", PriorityHigh)
+	task := manager.Add("テスト", PriorityHigh, "", time.Time{})
 
 	if task.IsDone() {
 		t.Error("New task should not be done")
@@ -187,7 +222,7 @@ func TestManagerDelete(t *testing.T) {
 	manager, tmpDir := setupTestManager(t)
 	defer os.RemoveAll(tmpDir)
 
-	task := manager.Add("テスト", PriorityLow)
+	task := manager.Add("テスト", PriorityLow, "", time.Time{})
 
 	if err := manager.Delete(task.ID); err != nil {
 		t.Fatalf("Delete() error = %v", err)
@@ -207,7 +242,7 @@ func TestManagerToggle(t *testing.T) {
 	manager, tmpDir := setupTestManager(t)
 	defer os.RemoveAll(tmpDir)
 
-	task := manager.Add("テスト", PriorityMedium)
+	task := manager.Add("テスト", PriorityMedium, "", time.Time{})
 
 	// Toggle to done
 	if err := manager.Toggle(task.ID); err != nil {
@@ -234,7 +269,7 @@ func TestManagerSetNoteID(t *testing.T) {
 	manager, tmpDir := setupTestManager(t)
 	defer os.RemoveAll(tmpDir)
 
-	task := manager.Add("テスト", PriorityHigh)
+	task := manager.Add("テスト", PriorityHigh, "", time.Time{})
 
 	if err := manager.SetNoteID(task.ID, "メモ"); err != nil {
 		t.Fatalf("SetNoteID() error = %v", err)
@@ -250,7 +285,7 @@ func TestManagerUnlinkNote(t *testing.T) {
 	manager, tmpDir := setupTestManager(t)
 	defer os.RemoveAll(tmpDir)
 
-	task := manager.AddWithNote("テスト", PriorityMedium, "メモ")
+	task := manager.Add("テスト", PriorityMedium, "メモ", time.Time{})
 
 	if err := manager.UnlinkNote(task.ID); err != nil {
 		t.Fatalf("UnlinkNote() error = %v", err)
@@ -275,8 +310,8 @@ func TestManagerPersistence(t *testing.T) {
 		t.Fatalf("NewManager() error = %v", err)
 	}
 
-	manager1.Add("タスク1", PriorityHigh)
-	manager1.AddWithNote("タスク2", PriorityLow, "メモ")
+	manager1.Add("タスク1", PriorityHigh, "", time.Time{})
+	manager1.Add("タスク2", PriorityLow, "メモ", time.Time{})
 
 	// Create new manager (simulating restart)
 	manager2, err := NewManager(tmpDir)

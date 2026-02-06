@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/intiramisu/note-cli/internal/config"
 	"github.com/intiramisu/note-cli/internal/task"
 	"github.com/intiramisu/note-cli/internal/util"
 	"github.com/spf13/cobra"
@@ -16,7 +15,7 @@ var taskCmd = &cobra.Command{
 	Aliases: []string{"t"},
 	Short:   "Manage tasks",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		manager, err := task.NewManager(config.Global.NotesDir)
+		manager, err := newTaskManager()
 		if err != nil {
 			return err
 		}
@@ -34,27 +33,19 @@ var taskAddCmd = &cobra.Command{
 		noteID, _ := cmd.Flags().GetString("note")
 		dueStr, _ := cmd.Flags().GetString("due")
 
-		priority := task.PriorityNone
-		switch priorityStr {
-		case "1", "high":
-			priority = task.PriorityHigh
-		case "2", "medium":
-			priority = task.PriorityMedium
-		case "3", "low":
-			priority = task.PriorityLow
-		}
+		priority := task.ParsePriority(priorityStr)
 
 		dueDate, err := util.ParseDueDate(dueStr)
 		if err != nil {
 			return err
 		}
 
-		manager, err := task.NewManager(config.Global.NotesDir)
+		manager, err := newTaskManager()
 		if err != nil {
 			return err
 		}
 
-		t := manager.AddFull(description, priority, noteID, dueDate)
+		t := manager.Add(description, priority, noteID, dueDate)
 
 		// 出力メッセージを構築
 		var extras []string
@@ -80,7 +71,7 @@ var taskListCmd = &cobra.Command{
 		showAll, _ := cmd.Flags().GetBool("all")
 		sortByDue, _ := cmd.Flags().GetBool("due")
 
-		manager, err := task.NewManager(config.Global.NotesDir)
+		manager, err := newTaskManager()
 		if err != nil {
 			return err
 		}
@@ -115,8 +106,6 @@ var taskListCmd = &cobra.Command{
 				dueLabel := t.DueDate.Format("01/02")
 				if t.IsOverdue() {
 					dueStr = fmt.Sprintf(" ⚠️ %s", dueLabel)
-				} else if t.IsDueSoon(3) {
-					dueStr = fmt.Sprintf(" 📅 %s", dueLabel)
 				} else {
 					dueStr = fmt.Sprintf(" 📅 %s", dueLabel)
 				}
@@ -138,7 +127,7 @@ var taskDoneCmd = &cobra.Command{
 			return fmt.Errorf("無効なID: %s", args[0])
 		}
 
-		manager, err := task.NewManager(config.Global.NotesDir)
+		manager, err := newTaskManager()
 		if err != nil {
 			return err
 		}
@@ -163,7 +152,7 @@ var taskDeleteCmd = &cobra.Command{
 			return fmt.Errorf("無効なID: %s", args[0])
 		}
 
-		manager, err := task.NewManager(config.Global.NotesDir)
+		manager, err := newTaskManager()
 		if err != nil {
 			return err
 		}

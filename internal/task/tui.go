@@ -247,7 +247,7 @@ func (m Model) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.settingDue = false
 			value := strings.TrimSpace(m.textInput.Value())
 			if value != "" {
-				newTask := m.manager.AddWithDue(value, m.addPriority, m.addDue)
+				newTask := m.manager.Add(value, m.addPriority, "", m.addDue)
 				m.refreshTasks()
 				m.moveCursorToTask(newTask.ID)
 			}
@@ -275,7 +275,7 @@ func (m Model) updateAddMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		value := strings.TrimSpace(m.textInput.Value())
 		if value != "" {
-			newTask := m.manager.Add(value, m.addPriority)
+			newTask := m.manager.Add(value, m.addPriority, "", time.Time{})
 			m.refreshTasks()
 			m.moveCursorToTask(newTask.ID)
 		}

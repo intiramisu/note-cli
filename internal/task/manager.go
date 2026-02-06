@@ -40,33 +40,7 @@ func NewManager(notesDir string) (*Manager, error) {
 	return m, nil
 }
 
-func (m *Manager) Add(description string, priority Priority) *Task {
-	task := NewTask(m.nextID, description, priority)
-	m.tasks = append(m.tasks, task)
-	m.nextID++
-	m.save()
-	return task
-}
-
-func (m *Manager) AddWithNote(description string, priority Priority, noteID string) *Task {
-	task := NewTask(m.nextID, description, priority)
-	task.NoteID = noteID
-	m.tasks = append(m.tasks, task)
-	m.nextID++
-	m.save()
-	return task
-}
-
-func (m *Manager) AddWithDue(description string, priority Priority, dueDate time.Time) *Task {
-	task := NewTask(m.nextID, description, priority)
-	task.DueDate = dueDate
-	m.tasks = append(m.tasks, task)
-	m.nextID++
-	m.save()
-	return task
-}
-
-func (m *Manager) AddFull(description string, priority Priority, noteID string, dueDate time.Time) *Task {
+func (m *Manager) Add(description string, priority Priority, noteID string, dueDate time.Time) *Task {
 	task := NewTask(m.nextID, description, priority)
 	task.NoteID = noteID
 	task.DueDate = dueDate
@@ -115,7 +89,7 @@ func (m *Manager) sortByPriority(tasks []*Task) []*Task {
 	return tasks
 }
 
-func (m *Manager) sortByDueDate(tasks []*Task) []*Task {
+func (m *Manager) SortByDueDate(tasks []*Task) []*Task {
 	sort.Slice(tasks, func(i, j int) bool {
 		// 期限なしは後ろに
 		if !tasks[i].HasDueDate() && !tasks[j].HasDueDate() {
@@ -143,7 +117,7 @@ func (m *Manager) ListByDueDate(showDone bool) []*Task {
 			result = append(result, t)
 		}
 	}
-	return m.sortByDueDate(result)
+	return m.SortByDueDate(result)
 }
 
 func (m *Manager) Get(id int) (*Task, error) {

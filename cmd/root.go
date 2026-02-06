@@ -5,8 +5,6 @@ import (
 	"os"
 
 	"github.com/intiramisu/note-cli/internal/config"
-	"github.com/intiramisu/note-cli/internal/note"
-	"github.com/intiramisu/note-cli/internal/task"
 	"github.com/intiramisu/note-cli/internal/ui"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -19,14 +17,12 @@ var rootCmd = &cobra.Command{
 	Short:   "A lightweight CLI tool for notes and tasks",
 	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg := config.Global
-
-		noteStorage, err := note.NewStorage(cfg.NotesDir)
+		noteStorage, err := newStorage()
 		if err != nil {
 			return err
 		}
 
-		taskManager, err := task.NewManager(cfg.NotesDir)
+		taskManager, err := newTaskManager()
 		if err != nil {
 			return err
 		}
