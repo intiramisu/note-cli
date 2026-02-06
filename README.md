@@ -1,5 +1,9 @@
 # note-cli
 
+[![CI](https://github.com/intiramisu/note-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/intiramisu/note-cli/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/intiramisu/note-cli/badges/coverage-badge.json)](https://github.com/intiramisu/note-cli/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/intiramisu/note-cli)](https://goreportcard.com/report/github.com/intiramisu/note-cli)
+
 ターミナルからメモとタスクを管理する軽量な CLI ツール。
 
 ## インストール
