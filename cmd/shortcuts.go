@@ -32,20 +32,11 @@ var editCmd = &cobra.Command{
 	RunE:  noteEditCmd.RunE,
 }
 
-var searchCmd = &cobra.Command{
-	Use:        "search <query>",
-	Short:      "Full-text search notes",
-	Deprecated: "use 'note-cli list' or integrated TUI instead",
-	Args:       cobra.MinimumNArgs(1),
-	RunE:       noteSearchCmd.RunE,
-}
-
 func init() {
 	rootCmd.AddCommand(createCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(showCmd)
 	rootCmd.AddCommand(editCmd)
-	rootCmd.AddCommand(searchCmd)
 
 	createCmd.Flags().StringSliceP("tag", "t", []string{}, "tags (can be specified multiple times)")
 	createCmd.Flags().StringP("template", "T", "", "template name")

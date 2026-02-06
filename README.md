@@ -46,7 +46,6 @@ note-cli create "メモ"     # = note-cli note create
 note-cli list              # = note-cli note list
 note-cli show "メモ"       # = note-cli note show
 note-cli edit "メモ"       # = note-cli note edit
-note-cli search "検索"     # = note-cli note search
 
 # エイリアス
 note-cli n create "メモ"   # n = note
@@ -94,12 +93,17 @@ note-cli n delete "会議メモ"
 note-cli n delete "会議メモ" -f
 ```
 
-### メモを検索
+### メモリンク
+
+`[[メモ名]]` 構文でメモ間をリンクできます。
 
 ```bash
-# 全文検索
-note-cli search "TODO"
+# メモ内で [[買い物リスト]] のように書くとリンクになる
+# show でリンク先の存在 (✓/✗) と被参照 (←) を表示
+note-cli show "会議メモ"
 ```
+
+統合TUI のメモ詳細画面でもリンク情報が表示されます。
 
 ### デイリーノート
 
@@ -112,7 +116,7 @@ note-cli d yesterday
 note-cli d tomorrow
 
 # 日付指定
-note-cli d 2025-01-11
+note-cli d 2026-01-11
 note-cli d -1    # 1日前
 note-cli d +3    # 3日後
 ```
@@ -160,6 +164,7 @@ note-cli t
 | `Enter` / `Space` | 完了/未完了を切替 |
 | `i` | 新規タスク追加 |
 | `d` / `x` | タスクを削除 |
+| `s` | ソート切替（優先度順 ⇔ 期限順） |
 | `q` | 終了 |
 
 **タスク追加時:**
@@ -168,6 +173,7 @@ note-cli t
 |------|------|
 | `Tab` | 優先度を変更 (P1 → P2 → P3 → P1) |
 | `Shift+Tab` | 優先度を逆順で変更 (P1 ← P2 ← P3 ← P1) |
+| `Ctrl+D` | 期限を設定 |
 | `Enter` | 確定 |
 | `Esc` | キャンセル |
 
@@ -231,6 +237,7 @@ note-cli
 | `a` | 既存タスクを紐づけ |
 | `d` | タスク削除 |
 | `o` | タスクの紐づけ解除 |
+| `s` | ソート切替（優先度順 ⇔ 期限順） |
 | `Space` | タスク完了/未完了切替 |
 | `q` | 終了 |
 
@@ -238,6 +245,15 @@ note-cli
 `i` で新規タスクを追加、`a` で既存の未紐づけタスクを選んで紐づけられます。
 
 ## 設定
+
+```bash
+# 現在の設定を表示
+note-cli config show
+
+# 設定を変更
+note-cli config set editor nano
+note-cli config set notes-dir ~/Documents/notes
+```
 
 デフォルトの設定ファイル: `~/.config/note-cli/config.yaml`
 
@@ -315,7 +331,6 @@ theme:
 ```yaml
 display:
   separator_width: 40         # 区切り線の幅
-  search_truncate: 80         # 検索結果の行切り詰め幅
   task_char_limit: 100        # タスク説明の最大文字数
   input_width: 40             # 入力フィールドの幅
 ```
@@ -331,8 +346,8 @@ display:
 ```markdown
 ---
 title: メモタイトル
-created: 2025-01-11T10:30:00+09:00
-modified: 2025-01-11T10:30:00+09:00
+created: 2026-01-11T10:30:00+09:00
+modified: 2026-01-11T10:30:00+09:00
 tags: [go, cli]
 ---
 

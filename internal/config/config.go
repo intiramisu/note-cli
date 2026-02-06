@@ -73,7 +73,6 @@ type Sections struct {
 // Display は表示設定
 type Display struct {
 	SeparatorWidth int `mapstructure:"separator_width"`
-	SearchTruncate int `mapstructure:"search_truncate"`
 	TaskCharLimit  int `mapstructure:"task_char_limit"`
 	InputWidth     int `mapstructure:"input_width"`
 }
@@ -126,7 +125,6 @@ func SetDefaults() {
 
 	// 表示設定
 	viper.SetDefault("display.separator_width", 40)
-	viper.SetDefault("display.search_truncate", 80)
 	viper.SetDefault("display.task_char_limit", 100)
 	viper.SetDefault("display.input_width", 40)
 }

@@ -9,7 +9,6 @@ import (
 
 	"github.com/intiramisu/note-cli/internal/config"
 	"github.com/intiramisu/note-cli/internal/note"
-	"github.com/intiramisu/note-cli/internal/search"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -229,45 +228,6 @@ var noteDeleteCmd = &cobra.Command{
 	},
 }
 
-var noteSearchCmd = &cobra.Command{
-	Use:        "search <query>",
-	Short:      "Full-text search notes",
-	Deprecated: "use 'note-cli list' or integrated TUI instead",
-	Args:       cobra.MinimumNArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		query := strings.Join(args, " ")
-		cfg := config.Global
-
-		results, err := search.Search(cfg.NotesDir, query)
-		if err != nil {
-			return err
-		}
-
-		if len(results) == 0 {
-			fmt.Printf("「%s」に一致するメモはありません\n", query)
-			return nil
-		}
-
-		fmt.Printf("「%s」の検索結果: %d件\n\n", query, len(results))
-
-		truncateWidth := cfg.Display.SearchTruncate
-		currentFile := ""
-		for _, r := range results {
-			if r.Filename != currentFile {
-				fmt.Printf("%s %s\n", cfg.Theme.Symbols.NoteIcon, r.Title)
-				currentFile = r.Filename
-			}
-			content := r.Content
-			if len(content) > truncateWidth {
-				content = content[:truncateWidth-3] + "..."
-			}
-			fmt.Printf("   L%d: %s\n", r.Line, content)
-		}
-
-		return nil
-	},
-}
-
 func init() {
 	rootCmd.AddCommand(noteCmd)
 	noteCmd.AddCommand(noteCreateCmd)
@@ -275,7 +235,6 @@ func init() {
 	noteCmd.AddCommand(noteShowCmd)
 	noteCmd.AddCommand(noteEditCmd)
 	noteCmd.AddCommand(noteDeleteCmd)
-	noteCmd.AddCommand(noteSearchCmd)
 
 	noteCreateCmd.Flags().StringSliceP("tag", "t", []string{}, "tags (can be specified multiple times)")
 	noteCreateCmd.Flags().StringP("template", "T", "", "template name")
