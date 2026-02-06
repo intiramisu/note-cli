@@ -33,10 +33,11 @@ var editCmd = &cobra.Command{
 }
 
 var searchCmd = &cobra.Command{
-	Use:   "search <query>",
-	Short: "Full-text search notes",
-	Args:  cobra.MinimumNArgs(1),
-	RunE:  noteSearchCmd.RunE,
+	Use:        "search <query>",
+	Short:      "Full-text search notes",
+	Deprecated: "use 'note-cli list' or integrated TUI instead",
+	Args:       cobra.MinimumNArgs(1),
+	RunE:       noteSearchCmd.RunE,
 }
 
 func init() {

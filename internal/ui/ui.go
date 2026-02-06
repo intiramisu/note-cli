@@ -533,6 +533,34 @@ func (m model) renderNoteDetail() string {
 		b.WriteString("\n")
 	}
 
+	// リンク情報
+	links := note.ExtractLinks(n.Content)
+	if len(links) > 0 {
+		b.WriteString("\n")
+		b.WriteString(styles.Meta.Render("🔗 リンク先: "))
+		found, notFound := note.ResolveLinks(m.noteStorage, links)
+		var parts []string
+		for _, ln := range found {
+			parts = append(parts, ln.Title)
+		}
+		for _, name := range notFound {
+			parts = append(parts, name+"(?)")
+		}
+		b.WriteString(styles.Meta.Render(strings.Join(parts, ", ")))
+		b.WriteString("\n")
+	}
+
+	backlinks, _ := note.FindBacklinks(m.noteStorage, n.Title)
+	if len(backlinks) > 0 {
+		b.WriteString(styles.Meta.Render("🔙 被参照: "))
+		var parts []string
+		for _, bl := range backlinks {
+			parts = append(parts, bl.Title)
+		}
+		b.WriteString(styles.Meta.Render(strings.Join(parts, ", ")))
+		b.WriteString("\n")
+	}
+
 	// 関連タスク
 	b.WriteString("\n")
 	taskTitleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(cfg.Theme.Colors.Selected)).MarginTop(1)

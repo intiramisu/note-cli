@@ -144,6 +144,30 @@ var noteShowCmd = &cobra.Command{
 		fmt.Println(strings.Repeat("-", cfg.Display.SeparatorWidth))
 		fmt.Println(n.Content)
 
+		// リンク情報を表示
+		links := note.ExtractLinks(n.Content)
+		if len(links) > 0 {
+			fmt.Println()
+			fmt.Println("🔗 リンク先:")
+			found, notFound := note.ResolveLinks(storage, links)
+			for _, ln := range found {
+				fmt.Printf("  ✓ %s\n", ln.Title)
+			}
+			for _, name := range notFound {
+				fmt.Printf("  ✗ %s (未作成)\n", name)
+			}
+		}
+
+		// バックリンク情報を表示
+		backlinks, err := note.FindBacklinks(storage, n.Title)
+		if err == nil && len(backlinks) > 0 {
+			fmt.Println()
+			fmt.Println("🔙 被参照:")
+			for _, bl := range backlinks {
+				fmt.Printf("  ← %s\n", bl.Title)
+			}
+		}
+
 		return nil
 	},
 }
@@ -206,9 +230,10 @@ var noteDeleteCmd = &cobra.Command{
 }
 
 var noteSearchCmd = &cobra.Command{
-	Use:   "search <query>",
-	Short: "Full-text search notes",
-	Args:  cobra.MinimumNArgs(1),
+	Use:        "search <query>",
+	Short:      "Full-text search notes",
+	Deprecated: "use 'note-cli list' or integrated TUI instead",
+	Args:       cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.Join(args, " ")
 		cfg := config.Global
