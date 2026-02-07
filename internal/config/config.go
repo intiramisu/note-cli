@@ -72,9 +72,10 @@ type Sections struct {
 
 // Display は表示設定
 type Display struct {
-	SeparatorWidth int `mapstructure:"separator_width"`
-	TaskCharLimit  int `mapstructure:"task_char_limit"`
-	InputWidth     int `mapstructure:"input_width"`
+	SeparatorWidth int    `mapstructure:"separator_width"`
+	TaskCharLimit  int    `mapstructure:"task_char_limit"`
+	InputWidth     int    `mapstructure:"input_width"`
+	MarkdownStyle  string `mapstructure:"markdown_style"`
 }
 
 // Global は現在の設定を保持するグローバル変数
@@ -127,6 +128,7 @@ func SetDefaults() {
 	viper.SetDefault("display.separator_width", 40)
 	viper.SetDefault("display.task_char_limit", 100)
 	viper.SetDefault("display.input_width", 40)
+	viper.SetDefault("display.markdown_style", "dark")
 }
 
 // Load は設定を読み込んでグローバル変数に格納する

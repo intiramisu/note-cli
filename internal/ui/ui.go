@@ -513,18 +513,29 @@ func (m model) renderNoteDetail() string {
 	b.WriteString(strings.Repeat("─", sepWidth))
 	b.WriteString("\n")
 
-	contentLines := strings.Split(n.Content, "\n")
 	maxContentLines := (m.height - 15) / 2
 	if maxContentLines < 3 {
 		maxContentLines = 3
 	}
+
+	rendered, renderErr := util.RenderMarkdown(n.Content, m.width-4, config.Global.Display.MarkdownStyle)
+	var contentLines []string
+	if renderErr != nil {
+		contentLines = strings.Split(n.Content, "\n")
+	} else {
+		contentLines = strings.Split(strings.TrimRight(rendered, "\n"), "\n")
+	}
+
 	for i, line := range contentLines {
 		if i >= maxContentLines {
 			b.WriteString(styles.Meta.Render("..."))
 			b.WriteString("\n")
 			break
 		}
-		b.WriteString(util.TruncateString(line, m.width-4))
+		if renderErr != nil {
+			line = util.TruncateString(line, m.width-4)
+		}
+		b.WriteString(line)
 		b.WriteString("\n")
 	}
 

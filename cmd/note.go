@@ -9,6 +9,7 @@ import (
 
 	"github.com/intiramisu/note-cli/internal/config"
 	"github.com/intiramisu/note-cli/internal/note"
+	"github.com/intiramisu/note-cli/internal/util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -141,7 +142,12 @@ var noteShowCmd = &cobra.Command{
 			fmt.Printf("タグ: %s\n", strings.Join(n.Tags, ", "))
 		}
 		fmt.Println(strings.Repeat("-", cfg.Display.SeparatorWidth))
-		fmt.Println(n.Content)
+		rendered, err := util.RenderMarkdown(n.Content, cfg.Display.SeparatorWidth, cfg.Display.MarkdownStyle)
+		if err != nil {
+			fmt.Println(n.Content)
+		} else {
+			fmt.Print(rendered)
+		}
 
 		// リンク情報を表示
 		links := note.ExtractLinks(n.Content)
